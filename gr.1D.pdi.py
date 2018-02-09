@@ -123,15 +123,14 @@ for i in coordFiles:
             sys.stdout.flush()
 
             ## Compute all pairwise distances 
-            for a in range(n_res):
-                for b in range(n_res):
-                    if a != b:
-                        dist2,dr = computePbcDist2(solute_sel[a].center_of_mass(),solute_sel[b].center_of_mass(),box,hbox)
-                        if hist_min2 < dist2 < hist_max2:
-                            dist = math.sqrt(dist2)
-                            #
-                            dist_bin = int((dist - hist_min)/bin_size)
-                            dist_hist[dist_bin] += 1
+            for a in range(n_res-1):
+                for b in range(a,n_res):
+                    dist2,dr = computePbcDist2(solute_sel[a].center_of_mass(),solute_sel[b].center_of_mass(),box,hbox)
+                    if hist_min2 < dist2 < hist_max2:
+                        dist = math.sqrt(dist2)
+                        #
+                        dist_bin = int((dist - hist_min)/bin_size)
+                        dist_hist[dist_bin] += 1
 
 
 ## Volume Correct
@@ -140,11 +139,11 @@ for i in range(num_bins):
 
 ## Normalize
 # Average last norm_len bins of g(r)
-norm_len = float(10)
+norm_len = 10
 norm = 0.
-for i in range(1,norm_len): # 0 1 2 3 
+for i in range(1,int(norm_len)): # 0 1 2 3 
     norm += dist_hist[-i]
-norm /= norm_len
+norm /= float(norm_len)
 
 for i in range(num_bins):## have to normalize after volume correction because the 'bulk' g(r) value changes after volume correction.
     dist_hist[i] /= dist_hist[num_bins - 1]
