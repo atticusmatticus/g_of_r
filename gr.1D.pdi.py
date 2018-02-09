@@ -139,7 +139,14 @@ for i in range(num_bins):
     dist_hist[i] /= 4*math.pi*((i+0.5)*bin_size + hist_min)**2
 
 ## Normalize
-for i in range(num_bins): ## have to normalize after volume correction because the 'bulk' g(r) value changes after volume correction.
+# Average last norm_len bins of g(r)
+norm_len = float(10)
+norm = 0.
+for i in range(1,norm_len): # 0 1 2 3 
+    norm += dist_hist[-i]
+norm /= norm_len
+
+for i in range(num_bins):## have to normalize after volume correction because the 'bulk' g(r) value changes after volume correction.
     dist_hist[i] /= dist_hist[num_bins - 1]
 
 ## Open Output File
