@@ -108,8 +108,11 @@ def getCoordBounds(cF):
     length2 = len("MAX DISTANCE: ")
     length3 = len("BIN SIZE: ")
     length4 = len("OFFSET: ")
+    length5 = len("ATOM1: ")
+    length6 = len("ATOM2: ")
+    length7 = len("ATOM3: ")
 
-    global rMin, rMax, binSize, binCount, d
+    global rMin, rMax, binSize, binCount, d, atom1, atom2, atom3
 
     # scan config file for coord and bin values
     while line != "END CONFIG\n":
@@ -126,6 +129,15 @@ def getCoordBounds(cF):
         elif line[:length4] == "OFFSET: ":
             rem = -1 * (len(line) - length4)
             d = float(line[rem:-1])
+        elif line[:length5] == "ATOM1: ":
+            rem = -1 * (len(line) - length5)
+            atom1 = str(line[rem:-1])
+        elif line[:length6] == "ATOM2: ":
+            rem = -1 * (len(line) - length6)
+            atom2 = str(line[rem:-1])
+        elif line[:length7] == "ATOM3: ":
+            rem = -1 * (len(line) - length7)
+            atom3 = str(line[rem:-1])
 
 # Define subset of data without solvent
 def parseWater():
@@ -208,9 +220,9 @@ def iterate():
         if ts.frame <= 0:
 # Compute solute vectors
 	    axes=numpy.zeros((3,3),dtype=float) # these dimensions because each atom position is a 3 element sequence
-	    atom1 = "N1"
-	    atom2 = "N2"
-	    atom3 = "C16"
+	    #atom1 = "N1"
+	    #atom2 = "N2"
+	    #atom3 = "C16"
 	    sel1 = "resid 1 and name "+atom1
 	    sel2 = "resid 1 and name "+atom2
 	    sel3 = "resid 1 and name "+atom3
@@ -286,7 +298,7 @@ def iterate():
                         iz=int(z/binSize)
                         nH2O[ix][iy][iz]+=1
 			pNow=a.atoms[1].position-a.atoms[0].position
-			pH2O[ix][iy][iz]+=pNow # pNow is in the Lab frame (unrotated frame)
+			pH2O[ix][iy][iz]+=pNow # pNow is in the Lab frame (unrotated frame, the frame of the box)
 #
     dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord)/5.*ngo)
     outFile = open(outname+".gr3", 'w')
@@ -295,7 +307,7 @@ def iterate():
             for k in range(binCount):
 		if nH2O[i][j][k] != 0: # so i dont get NaNs
 		    pH2O[i][j][k]/=nH2O[i][j][k]*1.1 # normalize by number of bins and equilibrium bond value
-		    pH2O[i][j][k]=numpy.dot(axes,pH2O[i][j][k]) # rotate into aligned frame (rotated frame)
+		    pH2O[i][j][k]=numpy.dot(axes,pH2O[i][j][k]) # rotate into aligned frame (rotated frame, the frame of the solute axes)
                 outFile.write("{:7.3f} {:7.3f} {:7.3f} {:18.12f} {:18.12f} {:18.12f} {:18.12f}\n".format((i+0.5)*binSize-hrMax,(j+0.5)*binSize-hrMax,(k+0.5)*binSize-hrMax,nH2O[i][j][k]*dxH2O,pH2O[i][j][k][0],pH2O[i][j][k][1],pH2O[i][j][k][2]))
     outFile.close()
 ####
