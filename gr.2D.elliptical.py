@@ -1,4 +1,4 @@
-# Compute Radial Distribution Function as a Function of Cos(theta) [ Spread into 2D ]
+# Compute Radial Distribution Function as a Function of Cos(theta) [ Spread into 2D ] around LJ sphere
 # python 2.7
 
 # CONFIG FILE FORMAT:
@@ -32,12 +32,14 @@ def computePbcDist2(r1,r2,box,hbox):
     return dist2,dr;
 
 
-## compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
-##      dist2       =   distance squared from solute atom to solvent residue
-##      dr          =   vector from solute atom to solvent residue
-##      g_count     =   g[r,cos(theta)] count array
-##      lj_force    =   average LJ force dotted into radial vector
-##      lj_boltz    =   average LJ boltzmann factor
+'''
+compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
+    dist2       =   distance squared from solute atom to solvent residue
+    dr          =   vector from solute atom to solvent residue
+    g_count     =   g[r,cos(theta)] count array
+    lj_force    =   average LJ force dotted into radial vector
+    lj_boltz    =   average LJ boltzmann factor
+'''
 def computeGr(solute_atom,solvent_residue,dist2,dr,g_count,lj_force,lj_force2,lj_boltz,lj_boltz2):
     dist = math.sqrt(dist2)
     ## Calculate Polarization Magnitude Along Radial Vector From Solute
