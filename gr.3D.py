@@ -1,5 +1,3 @@
-__author__ = 'Greg Poisson and Max Mattson'
-
 import matplotlib.pyplot as plt
 import numpy
 import MDAnalysis
@@ -201,7 +199,6 @@ def printLogData(d):
 #    and storing the results in a data set
 def iterate():
     global plots,dims,hdims
-    ngo=0
     hrMax=0.5*rMax
     pH2O=numpy.zeros((binCount,binCount,binCount,3))
     nH2O=numpy.zeros((binCount,binCount,binCount))
@@ -211,7 +208,6 @@ def iterate():
     for ts in coord.trajectory:                 # Iterate through all time steps
         dims = [coord.dimensions[0], coord.dimensions[1], coord.dimensions[2]]
         hdims = [x / 2. for x in dims] # EDIT: dims/2.
-        ngo+=1
 
         sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(coord.trajectory))) * 100))
         sys.stdout.flush()
@@ -300,7 +296,7 @@ def iterate():
 			pNow=a.atoms[1].position-a.atoms[0].position
 			pH2O[ix][iy][iz]+=pNow # pNow is in the Lab frame (unrotated frame, the frame of the box)
 #
-    dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord)/5.*ngo)
+    dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*len(coord.trajectory))
     outFile = open(outname+".gr3", 'w')
     for i in range(binCount):
         for j in range(binCount):
