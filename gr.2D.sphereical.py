@@ -1,13 +1,6 @@
 # Compute Radial Distribution Function as a Function of Cos(theta) [ Spread into 2D ] around LJ sphere
+# Spherical solvents
 # python 2.7
-
-# CONFIG FILE FORMAT:
-
-#   TopFile = [topology file name (prmtop file)]
-
-#   TrajFile = [trajectory file name (mdcrd file)]
-
-#   OutFile = [output data file name]
 
 import numpy as np
 import sys

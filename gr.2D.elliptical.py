@@ -1,13 +1,6 @@
 # Compute Radial Distribution Function as a Function of Cos(theta) [ Spread into 2D ] around LJ sphere
+# Elliptical solvents
 # python 2.7
-
-# CONFIG FILE FORMAT:
-
-#   TopFile = [topology file name (prmtop file)]
-
-#   TrajFile = [trajectory file name (mdcrd file)]
-
-#   OutFile = [output data file name]
 
 import numpy as np
 import sys
@@ -92,7 +85,7 @@ def computeGr(solute_atom,solvent_residue,dist2,dr,g_count,lj_force,lj_force2,lj
 ## Read configuration file and populate global variables
 
 def ParseConfigFile(cfg_file):
-        global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, system, solute_resname, solvent_resname, d
+        global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, system, solute_resname, solvent_resname, d, x1, x2, x0, y0
         f = open(cfg_file)
         for line in f:
                 # first remove comments
@@ -134,6 +127,14 @@ def ParseConfigFile(cfg_file):
                                 system = value
                         elif option.lower()=='offset':
                                 d = float(value)
+                        elif option.lower()=='x1':
+                                x1 = float(value)
+                        elif option.lower()=='x2':
+                                x2 = float(value)
+                        elif option.lower()=='x0':
+                                x0 = float(value)
+                        elif option.lower()=='y0':
+                                y0 = float(value)
                         else :
                                 print "Option:", option, " is not recognized"
         f.close()
@@ -417,7 +418,7 @@ elif system == "MOL":
 
 ## Loop through trajectory
 for ts in u.trajectory:## Loop over all time steps in the trajectory.
-    if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time?
+    if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
 
 	## Progress Bar
         sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(u.trajectory))) * 100))
