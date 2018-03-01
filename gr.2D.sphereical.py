@@ -1,5 +1,5 @@
 # Compute Radial Distribution Function as a Function of Cos(theta) [ Spread into 2D ] around LJ sphere
-# Spherical solvents
+# Elliptical solvents
 # python 2.7
 
 import numpy as np
@@ -26,9 +26,9 @@ class gr2D():
     compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
         dist2       =   distance squared from solute atom to solvent residue
         dr          =   vector from solute atom to solvent residue
-        gr          =   g[r,cos(theta)] count array
-        fr          =   average LJ force dotted into radial vector
-        bz          =   average LJ boltzmann factor
+        Gr          =   g[r,cos(theta)] count array
+        Fr          =   average LJ force dotted into radial vector
+        Bz          =   average LJ boltzmann factor
     '''
     def computeGr(self, solute_atom, solvent_residue, dist2, dr, AtomType, box, hbox, Gr, Fr, Bz):
         dist = math.sqrt(dist2)
@@ -81,7 +81,7 @@ class gr2D():
 
     ## Read configuration file and populate global variables
     def ParseConfigFile(self, cfg_file):
-            global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, solute_resname, solvent_resname, d
+            global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, solute_resname, solvent_resname, d, x1, x2, x0, y0
             f = open(cfg_file)
             for line in f:
                     # first remove comments
@@ -121,6 +121,14 @@ class gr2D():
                                     solvent_resname = value
                             elif option.lower()=='offset':
                                     d = float(value)
+                            elif option.lower()=='x1':
+                                    x1 = float(value)
+                            elif option.lower()=='x2':
+                                    x2 = float(value)
+                            elif option.lower()=='x0':
+                                    x0 = float(value)
+                            elif option.lower()=='y0':
+                                    y0 = float(value)
                             else :
                                     print "Option:", option, " is not recognized"
             f.close()
@@ -341,8 +349,11 @@ class gr2D():
         # Force array has the force, its square, the std.dev. of the force, and its square for each atomtype.
         # Fr[atomtypes, force/force**2/std.dev./std.dev.**2, distbin, angbin]
         Fr = np.zeros((nAtomTypes, 4, num_dist_bins, num_ang_bins), dtype=float)
+        # NOTE
+        # direct interaction potential
+        U_dir = np.zeros((nAtomTypes, num_dist_bins, num_ang_bins), dtype=float)
 
-        return Gr, Fr, Bz;
+        return Gr, Fr, Bz, U_dir;
 
     # Loop through trajectory
     def iterate(self, Gr, Fr, Bz):
@@ -418,9 +429,8 @@ class gr2D():
                     Gr[a, 0, i, j] /= Gr[a, 0, -1, j]
 
 
-    def integrateDirectSoluteSolventFrc(self, Fr):
+    def integrateDirectSoluteSolventFrc(self, Fr, U_dir):
         ## Integrate the direct Solute--Solvent force
-        U_dir = np.zeros((nAtomTypes, num_dist_bins, num_ang_bins), dtype=float)
         for a in range(nAtomTypes):
             for j in range(num_ang_bins):
                 for i in range(1,num_dist_bins+1):
@@ -428,10 +438,9 @@ class gr2D():
                         U_dir[a, -i, j] = Fr[a, 0, -i, j] * bin_dist_size
                     else:
                         U_dir[a, -i, j] = U_dir[a, -(i-1), j] + Fr[a, 0, -i, j] * bin_dist_size
-        return U_dir;
 
 
-    def writeOutputGr2D(self, out_file, Gr, Fr, Bz):
+    def writeOutputGr2D(self, out_file, Gr, Fr, Bz, U_dir):
         ## Open Output File
         out = open(out_file,'w')
 
@@ -476,7 +485,7 @@ class gr2D():
 
 
     ## Sum the Cos[theta] columns to collapse 2D into 1D
-    def collapseArrays(self, GrC, FrC, BzC):
+    def collapseArrays(self, GrC, FrC, BzC, Gr, Fr, Bz):
         for a in range(nAtomTypes):
             for i in range(num_dist_bins):
                 for j in range(num_ang_bins):
@@ -560,10 +569,11 @@ class gr2D():
         # parse the prmtop file 
         self.ParsePrmtopBonded(top_file)
 
+        ##########
         # initilize 2D arrays
         global nAtomTypes
         nAtomTypes = 2 # Number of solute atom types (+1z,-1z)
-        Gr,Fr,Bz = self.initilizeArrays2D()
+        Gr,Fr,Bz,U_dir = self.initilizeArrays2D()
 
         # loop through trajectory and calculate g(r,cos[theta]), force(r,cos[theta]), boltzmann(r,cos[theta])
         print 'Looping through trajectory time steps...'
@@ -583,15 +593,26 @@ class gr2D():
         self.normalizeGr(Gr)
 
         # integrate the direct Solute--Solvent force
-        U_dir = self.integrateDirectSoluteSolventFrc(Fr)
+        self.integrateDirectSoluteSolventFrc(Fr, U_dir)
 
-        # write 2D output files: gr, frc, boltz, integrated_force
-        print 'Write 2D output files'
-        self.writeOutputGr2D(out_file, Gr, Fr, Bz)
-        print 'Done with 2D'
+        # write 2D output file: gr, frc, boltz, integrated_force
+        print 'Write 2D output file'
+        self.writeOutputGr2D(out_file, Gr, Fr, Bz, U_dir)
 
+        ##########
+        print 'Starting Collapsed'
+        # initilize collapsed arrays
+        GrC,FrC,BzC = self.initilizeArraysCollapsed()
 
+        # collapse the 2D arrays into the 1D collapsed arrays
+        print 'Collapsing arrays'
+        self.collapseArrays(GrC, FrC, BzC, Gr, Fr, Bz)
 
+        # write collapsed output file
+        print 'Writing collapsed output file'
+        self.writeOutputCollapsed(collapsed_file, GrC, FrC, BzC)
+
+        print 'All Done!'
 
 
 # Run Main program code.

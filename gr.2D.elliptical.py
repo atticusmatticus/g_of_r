@@ -349,8 +349,11 @@ class gr2D():
         # Force array has the force, its square, the std.dev. of the force, and its square for each atomtype.
         # Fr[atomtypes, force/force**2/std.dev./std.dev.**2, distbin, angbin]
         Fr = np.zeros((nAtomTypes, 4, num_dist_bins, num_ang_bins), dtype=float)
+        # NOTE
+        # direct interaction potential
+        U_dir = np.zeros((nAtomTypes, num_dist_bins, num_ang_bins), dtype=float)
 
-        return Gr, Fr, Bz;
+        return Gr, Fr, Bz, U_dir;
 
     # Loop through trajectory
     def iterate(self, Gr, Fr, Bz):
@@ -426,9 +429,8 @@ class gr2D():
                     Gr[a, 0, i, j] /= Gr[a, 0, -1, j]
 
 
-    def integrateDirectSoluteSolventFrc(self, Fr):
+    def integrateDirectSoluteSolventFrc(self, Fr, U_dir):
         ## Integrate the direct Solute--Solvent force
-        U_dir = np.zeros((nAtomTypes, num_dist_bins, num_ang_bins), dtype=float)
         for a in range(nAtomTypes):
             for j in range(num_ang_bins):
                 for i in range(1,num_dist_bins+1):
@@ -436,10 +438,9 @@ class gr2D():
                         U_dir[a, -i, j] = Fr[a, 0, -i, j] * bin_dist_size
                     else:
                         U_dir[a, -i, j] = U_dir[a, -(i-1), j] + Fr[a, 0, -i, j] * bin_dist_size
-        return U_dir;
 
 
-    def writeOutputGr2D(self, out_file, Gr, Fr, Bz):
+    def writeOutputGr2D(self, out_file, Gr, Fr, Bz, U_dir):
         ## Open Output File
         out = open(out_file,'w')
 
@@ -484,7 +485,7 @@ class gr2D():
 
 
     ## Sum the Cos[theta] columns to collapse 2D into 1D
-    def collapseArrays(self, GrC, FrC, BzC):
+    def collapseArrays(self, GrC, FrC, BzC, Gr, Fr, Bz):
         for a in range(nAtomTypes):
             for i in range(num_dist_bins):
                 for j in range(num_ang_bins):
@@ -568,10 +569,11 @@ class gr2D():
         # parse the prmtop file 
         self.ParsePrmtopBonded(top_file)
 
+        ##########
         # initilize 2D arrays
         global nAtomTypes
         nAtomTypes = 2 # Number of solute atom types (+1z,-1z)
-        Gr,Fr,Bz = self.initilizeArrays2D()
+        Gr,Fr,Bz,U_dir = self.initilizeArrays2D()
 
         # loop through trajectory and calculate g(r,cos[theta]), force(r,cos[theta]), boltzmann(r,cos[theta])
         print 'Looping through trajectory time steps...'
@@ -591,15 +593,26 @@ class gr2D():
         self.normalizeGr(Gr)
 
         # integrate the direct Solute--Solvent force
-        U_dir = self.integrateDirectSoluteSolventFrc(Fr)
+        self.integrateDirectSoluteSolventFrc(Fr, U_dir)
 
-        # write 2D output files: gr, frc, boltz, integrated_force
-        print 'Write 2D output files'
-        self.writeOutputGr2D(out_file, Gr, Fr, Bz)
-        print 'Done with 2D'
+        # write 2D output file: gr, frc, boltz, integrated_force
+        print 'Write 2D output file'
+        self.writeOutputGr2D(out_file, Gr, Fr, Bz, U_dir)
 
+        ##########
+        print 'Starting Collapsed'
+        # initilize collapsed arrays
+        GrC,FrC,BzC = self.initilizeArraysCollapsed()
 
+        # collapse the 2D arrays into the 1D collapsed arrays
+        print 'Collapsing arrays'
+        self.collapseArrays(GrC, FrC, BzC, Gr, Fr, Bz)
 
+        # write collapsed output file
+        print 'Writing collapsed output file'
+        self.writeOutputCollapsed(collapsed_file, GrC, FrC, BzC)
+
+        print 'All Done!'
 
 
 # Run Main program code.
