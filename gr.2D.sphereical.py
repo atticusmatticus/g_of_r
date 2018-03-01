@@ -1,5 +1,5 @@
 # Compute Radial Distribution Function as a Function of Cos(theta) [ Spread into 2D ] around LJ sphere
-# Elliptical solvents
+# Spherical solvents
 # python 2.7
 
 import numpy as np
