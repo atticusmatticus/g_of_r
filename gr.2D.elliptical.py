@@ -84,53 +84,67 @@ class gr2D():
             global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, solute_resname, solvent_resname, d, x1, x2, x0, y0
             f = open(cfg_file)
             for line in f:
-                    # first remove comments
-                    if '#' in line:
-                            line, comment = line.split('#',1)
-                    if '=' in line:
-                            option, value = line.split('=',1)
-                            option = option.strip()
-                            value = value.strip()
-                            print "Option:", option, " Value:", value
-                            # check value
-                            if option.lower()=='topfile':
-                                    top_file = value
-                            elif option.lower()=='trajfile':
-                                    traj_file = value
-                            elif option.lower()=='outfile':
-                                    out_file = value
-                            elif option.lower()=='collapsed_outfile':
-                                    collapsed_file = value
-                            elif option.lower()=='hist_dist_min':
-                                    hist_dist_min = float(value)
-                            elif option.lower()=='hist_dist_max':
-                                    hist_dist_max = float(value)
-                            elif option.lower()=='bin_dist_size':
-                                    bin_dist_size = float(value)
-                            elif option.lower()=='hist_ang_min':
-                                    hist_ang_min = float(value)
-                            elif option.lower()=='hist_ang_max':
-                                    hist_ang_max = float(value)
-                            elif option.lower()=='bin_ang_size':
-                                    bin_ang_size = float(value)
-                            elif option.lower()=='temperature':
-                                    T = float(value)
-                            elif option.lower()=='solute_resname':
-                                    solute_resname = value
-                            elif option.lower()=='solvent_resname':
-                                    solvent_resname = value
-                            elif option.lower()=='offset':
-                                    d = float(value)
-                            elif option.lower()=='x1':
-                                    x1 = float(value)
-                            elif option.lower()=='x2':
-                                    x2 = float(value)
-                            elif option.lower()=='x0':
-                                    x0 = float(value)
-                            elif option.lower()=='y0':
-                                    y0 = float(value)
-                            else :
-                                    print "Option:", option, " is not recognized"
+                # first remove comments
+                if '#' in line:
+                    line, comment = line.split('#',1)
+                if '=' in line:
+                    option, value = line.split('=',1)
+                    option = option.strip()
+                    value = value.strip()
+                    print "Option:", option, " Value:", value
+                    # check value
+                    if option.lower()=='topfile':
+                        top_file = value
+                    elif option.lower()=='trajfile':
+                        traj_file = value
+                    elif option.lower()=='outfile':
+                        out_file = value
+                    elif option.lower()=='collapsed_outfile':
+                        collapsed_file = value
+                    elif option.lower()=='hist_dist_min':
+                        hist_dist_min = float(value)
+                    elif option.lower()=='hist_dist_max':
+                        hist_dist_max = float(value)
+                    elif option.lower()=='bin_dist_size':
+                        bin_dist_size = float(value)
+                    elif option.lower()=='hist_ang_min':
+                        hist_ang_min = float(value)
+                    elif option.lower()=='hist_ang_max':
+                        hist_ang_max = float(value)
+                    elif option.lower()=='bin_ang_size':
+                        bin_ang_size = float(value)
+                    elif option.lower()=='temperature':
+                        T = float(value)
+                    elif option.lower()=='solute_resname':
+                        solute_resname = value
+                    elif option.lower()=='solvent_resname':
+                        solvent_resname = value
+                    elif option.lower()=='offset':
+                        d = float(value)
+                    elif option.lower()=='x1':
+                        x1 = float(value)
+                    elif option.lower()=='x2':
+                        x2 = float(value)
+                    elif option.lower()=='x0':
+                        x0 = float(value)
+                    elif option.lower()=='y0':
+                        y0 = float(value)
+                    else :
+                        print "Option:", option, " is not recognized"
+
+            # set some extra global variables
+            global kT, hist_dist_min, hist_dist_min2, hist_dist_max, hist_dist_max2, num_dist_bins, num_ang_bins
+            # Boltzmann Constant in kcal/mol.K
+            k_B = 0.0019872041
+            kT = k_B * T
+            # Distances [in Angstroms]
+            hist_dist_min2= hist_dist_min*hist_dist_min
+            hist_dist_max2= hist_dist_max*hist_dist_max
+            # Histogram bins
+            num_dist_bins = int((hist_dist_max - hist_dist_min)/bin_dist_size)
+            # Cosine Theta Histogram bins
+            num_ang_bins = int((hist_ang_max - hist_ang_min)/bin_ang_size)
+
             f.close()
 
 
@@ -355,7 +369,7 @@ class gr2D():
 
         return Gr, Fr, Bz, U_dir;
 
-    # Loop through trajectory
+    # loop through trajectory
     def iterate(self, Gr, Fr, Bz):
         ## initiate MDAnalysis Universe.
         u = MDAnalysis.Universe(top_file, traj_file)
@@ -552,19 +566,6 @@ class gr2D():
         print 'Reading input and initilizing'
         # read cfg file
         self.ParseConfigFile(cfg_file)
-
-        # set some extra global variables
-        global kT, hist_dist_min, hist_dist_min2, hist_dist_max, hist_dist_max2, num_dist_bins, num_ang_bins
-        # Boltzmann Constant in kcal/mol.K
-        k_B = 0.0019872041
-        kT = k_B * T
-        # Distances [in Angstroms]
-        hist_dist_min2= hist_dist_min*hist_dist_min
-        hist_dist_max2= hist_dist_max*hist_dist_max
-        # Histogram bins
-        num_dist_bins = int((hist_dist_max - hist_dist_min)/bin_dist_size)
-        # Cosine Theta Histogram bins
-        num_ang_bins = int((hist_ang_max - hist_ang_min)/bin_ang_size)
 
         # parse the prmtop file 
         self.ParsePrmtopBonded(top_file)
