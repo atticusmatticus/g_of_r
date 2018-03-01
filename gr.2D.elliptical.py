@@ -10,7 +10,7 @@ import math
 
 class gr2D():
 
-    ## compute distance squared between two points taking into accound periodic boundary conditions
+    # compute distance squared between two points taking into account periodic boundary conditions
     def computePbcDist2(self, r1, r2, box, hbox):
         dr = r1-r2
         for j in range(3):## 0, 1, 2
@@ -22,20 +22,31 @@ class gr2D():
         return dist2,dr;
 
 
-    '''
-    compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
-        dist2       =   distance squared from solute atom to solvent residue
-        dr          =   vector from solute atom to solvent residue
-        Gr          =   g[r,cos(theta)] count array
-        Fr          =   average LJ force dotted into radial vector
-        Bz          =   average LJ boltzmann factor
-    '''
+    # compute elliptical parameter from r2, cos(theta), and the y0 axis with x0 axis assumed == 1
+    def computeAlpha(self, r2, r, c, y02):
+        r = math.sqrt(r2,r2)
+        alp = math.sqrt( r2 * (1-c)**2 + (r*c-d)**2/y02 )
+
+        return alp;
+
+
+    #
+    # compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
+    #       dist2       =   distance squared from solute atom to solvent residue
+    #       dr          =   vector from solute atom to solvent residue
+    #       Gr          =   g[r,cos(theta)] count array
+    #       Fr          =   average LJ force dotted into radial vector
+    #       Bz          =   average LJ boltzmann factor
+    #
     def computeGr(self, solute_atom, solvent_residue, dist2, dr, AtomType, box, hbox, Gr, Fr, Bz):
         dist = math.sqrt(dist2)
         ## Calculate Polarization Magnitude Along Radial Vector From Solute
-        pNow = solvent_residue.atoms[1].position - solvent_residue.atoms[0].position # dipole points from H to C in CL3.
-        pMag = math.sqrt(np.dot(pNow,pNow)) # Magnitude of solvent dipole vector. So pRad has range from -1 to +1, ie just Cos(theta)
-        pRad = np.dot(pNow,dr) / (dist * pMag) # Projection of normalized solvent dipole onto radial vector. (So just a magnitude)
+        pHC = solvent_residue.atoms[1].position - solvent_residue.atoms[0].position # dipole points from H to C in CL3.
+        pMag = math.sqrt(np.dot(pHC,pHC)) # Magnitude of solvent dipole vector. So pRad has range from -1 to +1, ie just Cos(theta)
+        pRad = np.dot(pHC,dr) / (dist * pMag) # Projection of normalized solvent dipole onto radial vector. (So just a magnitude)
+        #
+        # FIXME : calculate alpha after r and cos[theta] are calculated
+        alp = self.computeAlpha(dist2, dist,
         #
         dist_bin = int((dist - hist_dist_min)/bin_dist_size)
         ang_bin = int((pRad - hist_ang_min)/bin_ang_size)
@@ -133,17 +144,23 @@ class gr2D():
                         print "Option:", option, " is not recognized"
 
             # set some extra global variables
-            global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_ang_bins
+            global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_ang_bins, y02
+
             # Boltzmann Constant in kcal/mol.K
             k_B = 0.0019872041
             kT = k_B * T
+
             # Distances [in Angstroms]
             hist_dist_min2= hist_dist_min*hist_dist_min
             hist_dist_max2= hist_dist_max*hist_dist_max
+
             # Histogram bins
             num_dist_bins = int((hist_dist_max - hist_dist_min)/bin_dist_size)
+
             # Cosine Theta Histogram bins
             num_ang_bins = int((hist_ang_max - hist_ang_min)/bin_ang_size)
+
+            y02 = y0 * y0
 
             f.close()
 
