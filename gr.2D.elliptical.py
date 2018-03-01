@@ -133,7 +133,7 @@ class gr2D():
                         print "Option:", option, " is not recognized"
 
             # set some extra global variables
-            global kT, hist_dist_min, hist_dist_min2, hist_dist_max, hist_dist_max2, num_dist_bins, num_ang_bins
+            global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_ang_bins
             # Boltzmann Constant in kcal/mol.K
             k_B = 0.0019872041
             kT = k_B * T
