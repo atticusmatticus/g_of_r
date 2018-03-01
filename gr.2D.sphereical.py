@@ -81,7 +81,7 @@ class gr2D():
 
     ## Read configuration file and populate global variables
     def ParseConfigFile(self, cfg_file):
-            global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, solute_resname, solvent_resname, d
+            global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, solute_resname, solvent_resname, d, x1, x2, x0, y0
             f = open(cfg_file)
             for line in f:
                 # first remove comments
@@ -121,11 +121,19 @@ class gr2D():
                         solvent_resname = value
                     elif option.lower()=='offset':
                         d = float(value)
+                    elif option.lower()=='x1':
+                        x1 = float(value)
+                    elif option.lower()=='x2':
+                        x2 = float(value)
+                    elif option.lower()=='x0':
+                        x0 = float(value)
+                    elif option.lower()=='y0':
+                        y0 = float(value)
                     else :
                         print "Option:", option, " is not recognized"
 
             # set some extra global variables
-            global kT, hist_dist_min, hist_dist_min2, hist_dist_max, hist_dist_max2, num_dist_bins, num_ang_bins
+            global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_ang_bins
             # Boltzmann Constant in kcal/mol.K
             k_B = 0.0019872041
             kT = k_B * T
