@@ -1,5 +1,5 @@
 # Compute Radial Distribution Function as a Function of Cos(theta) [ Spread into 2D ] around LJ sphere
-# Elliptical solvents
+# Spherical solvents
 # python 2.7
 
 import numpy as np
@@ -10,9 +10,9 @@ import math
 
 class gr2D():
 
-    ## compute distance squared between two points taking into accound periodic boundary conditions
+    # compute distance squared between two points taking into account periodic boundary conditions
     def computePbcDist2(self, r1, r2, box, hbox):
-        dr = r1-r2
+        dr = r1-r2 # points from r2 to r1
         for j in range(3):## 0, 1, 2
             if dr[j] < -hbox[j]:
                 dr[j] += box[j] ## is the box automatically wrapped in .mdcrd files? Not when you put them in VMD! What if the distance is more than 1 box length away?
@@ -22,23 +22,23 @@ class gr2D():
         return dist2,dr;
 
 
-    '''
-    compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
-        dist2       =   distance squared from solute atom to solvent residue
-        dr          =   vector from solute atom to solvent residue
-        Gr          =   g[r,cos(theta)] count array
-        Fr          =   average LJ force dotted into radial vector
-        Bz          =   average LJ boltzmann factor
-    '''
+    #
+    # compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
+    #       dist2       =   distance squared from solute atom to solvent residue
+    #       dr          =   vector from solute atom to solvent residue
+    #       Gr          =   g[r,cos(theta)] count array
+    #       Fr          =   average LJ force dotted into radial vector
+    #       Bz          =   average LJ boltzmann factor
+    #
     def computeGr(self, solute_atom, solvent_residue, dist2, dr, AtomType, box, hbox, Gr, Fr, Bz):
         dist = math.sqrt(dist2)
         ## Calculate Polarization Magnitude Along Radial Vector From Solute
-        pNow = solvent_residue.atoms[1].position - solvent_residue.atoms[0].position # dipole points from H to C in CL3.
-        pMag = math.sqrt(np.dot(pNow,pNow)) # Magnitude of solvent dipole vector. So pRad has range from -1 to +1, ie just Cos(theta)
-        pRad = np.dot(pNow,dr) / (dist * pMag) # Projection of normalized solvent dipole onto radial vector. (So just a magnitude)
+        pHC = solvent_residue.atoms[1].position - solvent_residue.atoms[0].position # dipole points from H to C in CL3.
+        pHC_norm = math.sqrt(np.dot(pHC,pHC)) # Magnitude of solvent dipole vector pHC
+        cosTh = np.dot(pHC,dr) / (dist * pHC_norm) # Projection of two normalized vectors == cos[theta]
         #
         dist_bin = int((dist - hist_dist_min)/bin_dist_size)
-        ang_bin = int((pRad - hist_ang_min)/bin_ang_size)
+        ang_bin = int((cosTh - hist_ang_min)/bin_ang_size)
 
         ## Calculate non_bonded_index and LJ interaction energy
         lj_force_vec = np.zeros((3),dtype=float)
@@ -81,7 +81,7 @@ class gr2D():
 
     ## Read configuration file and populate global variables
     def ParseConfigFile(self, cfg_file):
-            global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, solute_resname, solvent_resname, d, x1, x2, x0, y0
+            global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_ang_min, hist_ang_max, bin_ang_size, T, solute_resname, solvent_resname, d
             f = open(cfg_file)
             for line in f:
                 # first remove comments
@@ -121,27 +121,23 @@ class gr2D():
                         solvent_resname = value
                     elif option.lower()=='offset':
                         d = float(value)
-                    elif option.lower()=='x1':
-                        x1 = float(value)
-                    elif option.lower()=='x2':
-                        x2 = float(value)
-                    elif option.lower()=='x0':
-                        x0 = float(value)
-                    elif option.lower()=='y0':
-                        y0 = float(value)
                     else :
                         print "Option:", option, " is not recognized"
 
             # set some extra global variables
             global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_ang_bins
+
             # Boltzmann Constant in kcal/mol.K
             k_B = 0.0019872041
             kT = k_B * T
+
             # Distances [in Angstroms]
             hist_dist_min2= hist_dist_min*hist_dist_min
             hist_dist_max2= hist_dist_max*hist_dist_max
+
             # Histogram bins
             num_dist_bins = int((hist_dist_max - hist_dist_min)/bin_dist_size)
+
             # Cosine Theta Histogram bins
             num_ang_bins = int((hist_ang_max - hist_ang_min)/bin_ang_size)
 
@@ -526,8 +522,8 @@ class gr2D():
                     # Std Dev using variance with weighted averages.
                     FrC[a, 1, i] = np.sqrt( ( FrC[a, 2, i] / GrC[a, i] ) - ( FrC[a, 1, i] / GrC[a, i] )**2 )
 
-                    # sum of weighted forces divided by sum of weights gives weighted average.
-                    BzC[a, i] /= GrC[a, i]
+                    # sum of weighted boltzmanns divided by sum of weights gives weighted average.
+                    BzC[a, 0, i] /= GrC[a, i]
                     # Std Dev using variance with weighted averages.
                     BzC[a, 1, i] = np.sqrt( ( BzC[a, 2, i] / GrC[a, i] ) - ( BzC[a, 1, i] / GrC[a, i] )**2 )
 
