@@ -32,18 +32,18 @@ class gr2D():
 
         alp = dist2*(1-cosTh)**2 + (dist*cosTh-d)**2/y02
 
-        return alp;
+        return alp,cosTh;
 
 
     #
     # compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
     #       dist2       =   distance squared from solute atom to solvent residue
     #       dr          =   vector from solute atom to solvent residue
-    #       Gr          =   g[r,cos(theta)] count array
+    #       Gr          =   g[r,cos(theta)] array
     #       Fr          =   average LJ force dotted into radial vector
     #       Bz          =   average LJ boltzmann factor
     #
-    def computeEllipticalGr(self, solute_atom, solvent_residue, alp2, dr, AtomType, box, hbox, Gr, Fr, Bz):
+    def computeEllipticalGr(self, solute_atom, solvent_residue, alp2, cosTh, dr, AtomType, box, hbox, Gr, Fr, Bz):
         alp = math.sqrt(alp2)
         #
         # NOTE bin for elliptical. Only need alpha but bin cos[theta] too for error checking
@@ -85,6 +85,63 @@ class gr2D():
             Fr[AtomType, 0, alp_bin, ang_bin] += force_var
             Fr[AtomType, 1, alp_bin, ang_bin] += force_var * force_var
 
+
+
+    #
+    # compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
+    #       dist2       =   distance squared from solute atom to solvent residue
+    #       dr          =   vector from solute atom to solvent residue
+    #       Gr          =   g[r,cos(theta)] count array
+    #       Fr          =   average LJ force dotted into radial vector
+    #       Bz          =   average LJ boltzmann factor
+    #
+    def computeSphericalGr(self, solute_atom, solvent_residue, dist2, dr, AtomType, box, hbox, Gr, Fr, Bz):
+        dist = math.sqrt(dist2)
+        ## Calculate Polarization Magnitude Along Radial Vector From Solute
+        pHC = solvent_residue.atoms[1].position - solvent_residue.atoms[0].position # dipole points from H to C in CL3.
+        pHC_norm = math.sqrt(np.dot(pHC,pHC)) # Magnitude of solvent dipole vector.
+        cosTh = np.dot(pHC,dr) / (dist * pHC_norm) # Projection of two normalized vectors == cos[theta]
+        #
+        # NOTE bin for spherical
+        dist_bin = int((dist - hist_dist_min)/bin_dist_size)
+        ang_bin = int((cosTh - hist_ang_min)/bin_ang_size)
+
+        ## Calculate non_bonded_index and LJ interaction energy
+        lj_force_vec = np.zeros((3),dtype=float)
+        energy = 0.0
+        for i in solvent_residue.atoms: # loop through atoms of the solvent molecule 'b'.
+            index = n_types*(atom_type_index[solute_atom.index]-1) + atom_type_index[i.index] - 1 # the '-1' at the end is to zero-index the array because python arrays are zero-indexed and AMBER arrays are one-indexed.
+            nb_index = nb_parm_index[index] - 1 # same reason as above for the '- 1' at the end.
+            lj_dist2,lj_dr = self.computePbcDist2(solute_atom.position, i.position, box, hbox)
+            #lj_dist = math.sqrt(lj_dist2)
+            
+            # define r^(-6) for faster calculation of force and energy
+            r6 = lj_dist2**(-3) 
+            # force vector along lj_dr (vector from solute ATOM to solvent ATOM)
+            lj_force_vec += ( r6 * ( 12. * r6 * lj_a_coeff[nb_index] - 6. * lj_b_coeff[nb_index] ) / lj_dist2 ) * lj_dr
+            # LJ energy of atoms summed
+            energy += r6 * ( r6 * lj_a_coeff[nb_index] - lj_b_coeff[nb_index] ) 
+            #print i,lj_a_coeff[nb_index],lj_b_coeff[nb_index]
+
+        energy_var = np.exp( - energy / kT )
+        force_var = np.dot( lj_force_vec, dr)/dist # project force from solvent ATOM onto vector from solvent RESIDUE
+        ## Sum the LJ energy and _then_ put it in the exponential. Not a sum of the individual boltzmanns.
+        if ang_bin == num_ang_bins:
+            Gr[AtomType, :, dist_bin, -1] += 1.
+
+            Bz[AtomType, 0, dist_bin, -1] += energy_var
+            Bz[AtomType, 1, dist_bin, -1] += energy_var * energy_var
+
+            Fr[AtomType, 0, dist_bin, -1] += force_var
+            Fr[AtomType, 1, dist_bin, -1] += force_var * force_var
+        else:
+            Gr[AtomType, :, dist_bin, ang_bin] += 1.
+
+            Bz[AtomType, 0, dist_bin, ang_bin] += energy_var
+            Bz[AtomType, 1, dist_bin, ang_bin] += energy_var * energy_var
+
+            Fr[AtomType, 0, dist_bin, ang_bin] += force_var
+            Fr[AtomType, 1, dist_bin, ang_bin] += force_var * force_var
 
 
     ## Read configuration file and populate global variables
@@ -141,7 +198,7 @@ class gr2D():
                         print "Option:", option, " is not recognized"
 
             # set some extra global variables
-            global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_ang_bins, y02, hist_alp_min, hist_alp_max, hist_alp_min2, hist_alp_max2
+            global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_ang_bins, y02, hist_alp_min, hist_alp_max, hist_alp_min2, hist_alp_max2, num_alp_bins, bin_alp_size
 
             # Boltzmann Constant in kcal/mol.K
             k_B = 0.0019872041
@@ -160,12 +217,21 @@ class gr2D():
             y02 = y0 * y0
 
             # Alpha distances
-            hist_alp_min2 = d**2 / y02
-            hist_alp_min = math.sqrt(hist_alp_min2)
+            #hist_alp_min2 = d**2 / y02
+            #hist_alp_min = math.sqrt(hist_alp_min2)
+            hist_alp_min = 0
+            hist_alp_min2 = 0
             hist_alp_max = math.sqrt(((-1)*hist_dist_max - d)**2/y02) # max alpha, cos[theta] == -1 and r == distmax
             hist_alp_max2 = hist_alp_max**2
             
             num_alp_bins = int((hist_alp_max - hist_alp_min)/bin_dist_size)
+            bin_alp_size = bin_dist_size
+
+            print 'hist_alp_min: ',hist_alp_min
+            print 'hist_alp_max: ',hist_alp_max
+            print 'hist_alp_max2: ',hist_alp_max2
+            print 'bin_alp_size: ',bin_alp_size
+            print 'num_alp_bins: ',num_alp_bins
 
             f.close()
 
@@ -391,6 +457,7 @@ class gr2D():
 
         return Gr, Fr, Bz, U_dir;
 
+
     # loop through trajectory
     def iterateEllipse(self, Gr, Fr, Bz):
         ## initiate MDAnalysis Universe.
@@ -415,18 +482,57 @@ class gr2D():
                         rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
                         ## Bin the solvent for g(r) only if the solvent is on the far side of the respective solute atom
                         dist2,dr = self.computePbcDist2(a.position, rSolv, box, hbox) # distance between solute and excluded volume center of CL3
-                        alp2 = self.computeAlpha2(dist2, dr, b)
+                        alp2,cosTh = self.computeAlpha2(dist2, dr, b)
                         if a.index == 0: # if first LJ particle is selected...
-                            if alp2 <= hist_alp_max2:
+                            # FIXME: previously the following line was {alp2 < hist_alp_max2} but I would get rounding errors and the alp values would get binned into bins too large for the Gr array etc.
+                            if alp2 < (hist_alp_max2 - bin_alp_size):
                                 if np.dot(R12,dr) < 0: # Is dr dot product pointing right direction? Then compute sqrt
                                     if hist_alp_min2 < alp2 < hist_alp_max2:
-                                        self.computeEllipticalGr(a, b, alp2, dr, a.index, box, hbox, Gr, Fr, Bz)
+                                        self.computeEllipticalGr(a, b, alp2, cosTh, dr, a.index, box, hbox, Gr, Fr, Bz)
 
                         elif a.index == 1: # if second LJ particle is selected...
-                            if alp2 <= hist_alp_max2:
+                            # FIXME: previously the following line was {alp2 < hist_alp_max2} but I would get rounding errors and the alp values would get binned into bins too large for the Gr array etc.
+                            if alp2 < (hist_alp_max2 - bin_alp_size):
                                 if np.dot(R12,dr) > 0: # Is dr dot product pointing right direction? Then compute sqrt
                                     if hist_alp_min2 < alp2 < hist_alp_max2:
-                                        self.computeEllipticalGr(a, b, alp2, dr, a.index, box, hbox, Gr, Fr, Bz)
+                                        self.computeEllipticalGr(a, b, alp2, cosTh, dr, a.index, box, hbox, Gr, Fr, Bz)
+
+
+    # loop through trajectory
+    def iterateSphere(self, Gr, Fr, Bz):
+        ## initiate MDAnalysis Universe.
+        u = MDAnalysis.Universe(top_file, traj_file)
+        solute_sel = u.select_atoms('resname ' + solute_resname)
+        solvent_sel = u.select_atoms('resname ' + solvent_resname)
+
+        for ts in u.trajectory:## Loop over all time steps in the trajectory.
+            if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
+
+                ## Progress Bar
+                sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(u.trajectory))) * 100))
+                sys.stdout.flush()
+
+                box = u.dimensions[:3]## define box and half box here so we save division calculation for every distance pair when we calculate 'dist' below.
+                hbox = u.dimensions[:3]/2.0
+
+                ## Compute all pairwise distances
+                dist2,R12 = self.computePbcDist2(solute_sel.atoms[0].position, solute_sel.atoms[1].position, box, hbox)# Calculate the vector (R12) between the two LJ particles.
+                for a in solute_sel.atoms:
+                    for b in solvent_sel.residues:
+                        rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
+                        ## Bin the solvent for g(r) only if the solvent is on the far side of the respective solute atom
+                        dist2,dr = self.computePbcDist2(a.position, rSolv, box, hbox) # distance between solute and excluded volume center of CL3
+                        if a.index == 0: # if first LJ particle is selected...
+                            if dist2 <= hist_dist_max2:
+                                if np.dot(R12,dr) < 0: # Is dr dot product pointing right direction? Then compute sqrt
+                                    if hist_dist_min2 < dist2 < hist_dist_max2:
+                                        self.computeSphericalGr(a, b, dist2, dr, a.index, box, hbox, Gr, Fr, Bz)
+
+                        elif a.index == 1: # if second LJ particle is selected...
+                            if dist2 <= hist_dist_max2:
+                                if np.dot(R12,dr) > 0: # Is dr dot product pointing right direction? Then compute sqrt
+                                    if hist_dist_min2 < dist2 < hist_dist_max2:
+                                        self.computeSphericalGr(a, b, dist2, dr, a.index, box, hbox, Gr, Fr, Bz)
 
 
     def averageFrBz(self, Gr, Fr, Bz):
@@ -655,7 +761,7 @@ class gr2D():
 
         ##########
         # initilize 2D arrays
-        global nAtomTypes
+        global nAtomTypes, num_dist_bins
         nAtomTypes = 2 # Number of solute atom types (+1z,-1z)
         num_dist_bins = num_alp_bins
 
@@ -705,106 +811,6 @@ class gr2D():
 # Run Main program code.
 g2d = gr2D()
 
-g2d.mainLJ()
-
-
-
-
-#################################################################################
-######################  Old Spherical binning sub routines
-# make into a seprate class 
-
-    #
-    # compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
-    #       dist2       =   distance squared from solute atom to solvent residue
-    #       dr          =   vector from solute atom to solvent residue
-    #       Gr          =   g[r,cos(theta)] count array
-    #       Fr          =   average LJ force dotted into radial vector
-    #       Bz          =   average LJ boltzmann factor
-    #
-    def computeSphericalGr(self, solute_atom, solvent_residue, dist2, dr, AtomType, box, hbox, Gr, Fr, Bz):
-        dist = math.sqrt(dist2)
-        ## Calculate Polarization Magnitude Along Radial Vector From Solute
-        pHC = solvent_residue.atoms[1].position - solvent_residue.atoms[0].position # dipole points from H to C in CL3.
-        pHC_norm = math.sqrt(np.dot(pHC,pHC)) # Magnitude of solvent dipole vector.
-        cosTh = np.dot(pHC,dr) / (dist * pHC_norm) # Projection of two normalized vectors == cos[theta]
-        #
-        # NOTE bin for spherical
-        dist_bin = int((dist - hist_dist_min)/bin_dist_size)
-        ang_bin = int((cosTh - hist_ang_min)/bin_ang_size)
-
-        ## Calculate non_bonded_index and LJ interaction energy
-        lj_force_vec = np.zeros((3),dtype=float)
-        energy = 0.0
-        for i in solvent_residue.atoms: # loop through atoms of the solvent molecule 'b'.
-            index = n_types*(atom_type_index[solute_atom.index]-1) + atom_type_index[i.index] - 1 # the '-1' at the end is to zero-index the array because python arrays are zero-indexed and AMBER arrays are one-indexed.
-            nb_index = nb_parm_index[index] - 1 # same reason as above for the '- 1' at the end.
-            lj_dist2,lj_dr = self.computePbcDist2(solute_atom.position, i.position, box, hbox)
-            #lj_dist = math.sqrt(lj_dist2)
-            
-            # define r^(-6) for faster calculation of force and energy
-            r6 = lj_dist2**(-3) 
-            # force vector along lj_dr (vector from solute ATOM to solvent ATOM)
-            lj_force_vec += ( r6 * ( 12. * r6 * lj_a_coeff[nb_index] - 6. * lj_b_coeff[nb_index] ) / lj_dist2 ) * lj_dr
-            # LJ energy of atoms summed
-            energy += r6 * ( r6 * lj_a_coeff[nb_index] - lj_b_coeff[nb_index] ) 
-            #print i,lj_a_coeff[nb_index],lj_b_coeff[nb_index]
-
-        energy_var = np.exp( - energy / kT )
-        force_var = np.dot( lj_force_vec, dr)/dist # project force from solvent ATOM onto vector from solvent RESIDUE
-        ## Sum the LJ energy and _then_ put it in the exponential. Not a sum of the individual boltzmanns.
-        if ang_bin == num_ang_bins:
-            Gr[AtomType, :, dist_bin, -1] += 1.
-
-            Bz[AtomType, 0, dist_bin, -1] += energy_var
-            Bz[AtomType, 1, dist_bin, -1] += energy_var * energy_var
-
-            Fr[AtomType, 0, dist_bin, -1] += force_var
-            Fr[AtomType, 1, dist_bin, -1] += force_var * force_var
-        else:
-            Gr[AtomType, :, dist_bin, ang_bin] += 1.
-
-            Bz[AtomType, 0, dist_bin, ang_bin] += energy_var
-            Bz[AtomType, 1, dist_bin, ang_bin] += energy_var * energy_var
-
-            Fr[AtomType, 0, dist_bin, ang_bin] += force_var
-            Fr[AtomType, 1, dist_bin, ang_bin] += force_var * force_var
-
-
-
-    # loop through trajectory
-    def iterateSphere(self, Gr, Fr, Bz):
-        ## initiate MDAnalysis Universe.
-        u = MDAnalysis.Universe(top_file, traj_file)
-        solute_sel = u.select_atoms('resname ' + solute_resname)
-        solvent_sel = u.select_atoms('resname ' + solvent_resname)
-
-        for ts in u.trajectory:## Loop over all time steps in the trajectory.
-            if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
-
-                ## Progress Bar
-                sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(u.trajectory))) * 100))
-                sys.stdout.flush()
-
-                box = u.dimensions[:3]## define box and half box here so we save division calculation for every distance pair when we calculate 'dist' below.
-                hbox = u.dimensions[:3]/2.0
-
-                ## Compute all pairwise distances
-                dist2,R12 = self.computePbcDist2(solute_sel.atoms[0].position, solute_sel.atoms[1].position, box, hbox)# Calculate the vector (R12) between the two LJ particles.
-                for a in solute_sel.atoms:
-                    for b in solvent_sel.residues:
-                        rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
-                        ## Bin the solvent for g(r) only if the solvent is on the far side of the respective solute atom
-                        dist2,dr = self.computePbcDist2(a.position, rSolv, box, hbox) # distance between solute and excluded volume center of CL3
-                        if a.index == 0: # if first LJ particle is selected...
-                            if dist2 <= hist_dist_max2:
-                                if np.dot(R12,dr) < 0: # Is dr dot product pointing right direction? Then compute sqrt
-                                    if hist_dist_min2 < dist2 < hist_dist_max2:
-                                        self.computeSphericalGr(a, b, dist2, dr, a.index, box, hbox, Gr, Fr, Bz)
-
-                        elif a.index == 1: # if second LJ particle is selected...
-                            if dist2 <= hist_dist_max2:
-                                if np.dot(R12,dr) > 0: # Is dr dot product pointing right direction? Then compute sqrt
-                                    if hist_dist_min2 < dist2 < hist_dist_max2:
-                                        self.computeSphericalGr(a, b, dist2, dr, a.index, box, hbox, Gr, Fr, Bz)
+#g2d.mainSphericalLJ()
+g2d.mainEllipticalLJ()
 
