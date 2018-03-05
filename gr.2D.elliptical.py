@@ -30,9 +30,9 @@ class gr2D():
         pHC_norm = math.sqrt(np.dot(pHC,pHC)) # Magnitude of solvent dipole vector.
         cosTh = np.dot(pHC,dr) / (dist * pHC_norm) # Projection of two normalized vectors == cos[theta]
 
-        alp = dist2*(1-cosTh)**2 + (dist*cosTh-d)**2/y02
+        alp2 = dist2*(1-cosTh**2) + (dist*cosTh-d)**2/y02
 
-        return alp,cosTh;
+        return alp2,cosTh;
 
 
     #
@@ -479,7 +479,9 @@ class gr2D():
                 dist2,R12 = self.computePbcDist2(solute_sel.atoms[0].position, solute_sel.atoms[1].position, box, hbox)# Calculate the vector (R12) between the two LJ particles.
                 for a in solute_sel.atoms:
                     for b in solvent_sel.residues:
-                        rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
+                        # XXX: after implementing alpha the offset 'd' gets used twice 
+                        #rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
+                        rSolv = (b.atoms[1].position) # just carbon position because d is implemented in computeAlpha2
                         ## Bin the solvent for g(r) only if the solvent is on the far side of the respective solute atom
                         dist2,dr = self.computePbcDist2(a.position, rSolv, box, hbox) # distance between solute and excluded volume center of CL3
                         alp2,cosTh = self.computeAlpha2(dist2, dr, b)
@@ -603,7 +605,7 @@ class gr2D():
         out.write("## 14: Integrated force -\n")
         for i in range(num_dist_bins):
             for j in range(num_ang_bins):
-                out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*bin_dist_size+hist_dist_min, (j+0.5)*bin_ang_size+hist_ang_min, Gr[0,0,i,j], Gr[1,0,i,j], Fr[0,0,i,j], Fr[0,2,i,j], Fr[1,0,i,j], Fr[1,2,i,j], Bz[0,0,i,j], Bz[0,2,i,j], Bz[1,0,i,j], Bz[1,2,i,j], U_dir[0,i,j], U_dir[1,i,j]))
+                out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*bin_alp_size+hist_alp_min, (j+0.5)*bin_ang_size+hist_ang_min, Gr[0,0,i,j], Gr[1,0,i,j], Fr[0,0,i,j], Fr[0,2,i,j], Fr[1,0,i,j], Fr[1,2,i,j], Bz[0,0,i,j], Bz[0,2,i,j], Bz[1,0,i,j], Bz[1,2,i,j], U_dir[0,i,j], U_dir[1,i,j]))
 
         ## Close Output File
         out.close
