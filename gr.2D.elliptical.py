@@ -658,7 +658,7 @@ class gr2D():
                     FrC[a, 1, i] = np.sqrt( ( FrC[a, 2, i] / GrC[a, i] ) - ( FrC[a, 1, i] / GrC[a, i] )**2 )
 
                     # sum of weighted forces divided by sum of weights gives weighted average.
-                    BzC[a, i] /= GrC[a, i]
+                    BzC[a, 0, i] /= GrC[a, i]
                     # Std Dev using variance with weighted averages.
                     BzC[a, 1, i] = np.sqrt( ( BzC[a, 2, i] / GrC[a, i] ) - ( BzC[a, 1, i] / GrC[a, i] )**2 )
 
