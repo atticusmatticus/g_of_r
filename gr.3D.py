@@ -136,6 +136,7 @@ def getCoordBounds(cF):
         elif line[:length7] == "ATOM3: ":
             rem = -1 * (len(line) - length7)
             atom3 = str(line[rem:-1])
+            print 'ATOM3: ',atom3
 
 # Define subset of data without solvent
 def parseWater():
@@ -216,19 +217,24 @@ def iterate():
         if ts.frame <= 0:
 # Compute solute vectors
 	    axes=numpy.zeros((3,3),dtype=float) # these dimensions because each atom position is a 3 element sequence
-	    #atom1 = "N1"
-	    #atom2 = "N2"
-	    #atom3 = "C16"
-	    sel1 = "resid 1 and name "+atom1
-	    sel2 = "resid 1 and name "+atom2
-	    sel3 = "resid 1 and name "+atom3
+	    sel1 = atom1 # "resid 1 and name "+atom1
+	    sel2 = atom2
+            if atom3 != '.': # XXX: for LJ sphere dimer simulations use atom3 = . in the config file
+                sel3 = atom3
+
 	    sel1_univ = coord.select_atoms(sel1)
 	    sel2_univ = coord.select_atoms(sel2)
-	    sel3_univ = coord.select_atoms(sel3)
+            if atom3 != ".":
+                sel3_univ = coord.select_atoms(sel3)
 # Atom positions
-	    atom1_pos = sel1_univ.atoms[0].position
-	    atom2_pos = sel2_univ.atoms[0].position
-	    atom3_pos = sel3_univ.atoms[0].position
+            if atom3 != '.':
+                atom1_pos = sel1_univ.atoms[0].position
+                atom2_pos = sel2_univ.atoms[0].position
+                atom3_pos = sel3_univ.atoms[0].position
+            else:
+                atom1_pos = sel1_univ.atoms[0].position
+                atom2_pos = sel1_univ.atoms[1].position
+                atom3_pos = numpy.zeros(3, dtype=float)
 # Find 3 axes of solute
 	    r1 = atom2_pos-atom1_pos
 	    r1 /= math.sqrt(numpy.dot(r1,r1))
