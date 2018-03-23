@@ -136,7 +136,6 @@ def getCoordBounds(cF):
         elif line[:length7] == "ATOM3: ":
             rem = -1 * (len(line) - length7)
             atom3 = str(line[rem:-1])
-            print 'ATOM3: ',atom3
 
 # Define subset of data without solvent
 def parseWater():
@@ -154,7 +153,7 @@ def initMDA():
 
     m = False       # Swtiched to True if user requests an rMax value greater than the system allows
     # coordinate universe
-    coord = MDAnalysis.Universe(psf, coordDcd)
+    coord = MDAnalysis.Universe(psf, coordDcd[0])
     dims = [coord.dimensions[0], coord.dimensions[1], coord.dimensions[2]]
     hdims = [dims[0]/2,dims[1]/2,dims[2]/2]
     rMaxLimit = numpy.sqrt((dims[0]**2) + (dims[1]**2) + (dims[2]**2))
@@ -206,110 +205,114 @@ def iterate():
 
     if debug:
         print "-- Iterating through all particle pairs in first time step to establish pair types"
-    for ts in coord.trajectory:                 # Iterate through all time steps
-        dims = [coord.dimensions[0], coord.dimensions[1], coord.dimensions[2]]
-        hdims = [x / 2. for x in dims] # EDIT: dims/2.
 
-        sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(coord.trajectory))) * 100))
-        sys.stdout.flush()
+    for igo in range(len(coordDcd)):
+        coord.load_new(coordDcd[igo])
+        print "Now analyzing trajectory file: ", coordDcd[igo]
+        for ts in coord.trajectory:                 # Iterate through all time steps
+            dims = [coord.dimensions[0], coord.dimensions[1], coord.dimensions[2]]
+            hdims = [x / 2. for x in dims] # EDIT: dims/2.
 
-# Compute radial vectors
-        if ts.frame <= 0:
-# Compute solute vectors
-	    axes=numpy.zeros((3,3),dtype=float) # these dimensions because each atom position is a 3 element sequence
-	    sel1 = atom1 # "resid 1 and name "+atom1
-	    sel2 = atom2
-            if atom3 != '.': # XXX: for LJ sphere dimer simulations use atom3 = . in the config file
-                sel3 = atom3
+            sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(coord.trajectory))) * 100))
+            sys.stdout.flush()
 
-	    sel1_univ = coord.select_atoms(sel1)
-	    sel2_univ = coord.select_atoms(sel2)
-            if atom3 != ".":
-                sel3_univ = coord.select_atoms(sel3)
-# Atom positions
-            if atom3 != '.':
-                atom1_pos = sel1_univ.atoms[0].position
-                atom2_pos = sel2_univ.atoms[0].position
-                atom3_pos = sel3_univ.atoms[0].position
-            else:
-                atom1_pos = sel1_univ.atoms[0].position
-                atom2_pos = sel1_univ.atoms[1].position
-                atom3_pos = numpy.zeros(3, dtype=float)
-# Find 3 axes of solute
-	    r1 = atom2_pos-atom1_pos
-	    r1 /= math.sqrt(numpy.dot(r1,r1))
-	    t1 = atom3_pos-atom1_pos
-	    r3 = numpy.cross(r1,t1)
-	    r3 /= math.sqrt(numpy.dot(r3,r3))
-	    r2 = numpy.cross(r3,r1)
-	    r2 /= math.sqrt(numpy.dot(r2,r2))
-# Define 3 axes of solute
-	    axes[0] = r1
-	    axes[1] = r2
-	    axes[2] = r3
+    # Compute radial vectors
+            if ts.frame <= 0:
+    # Compute solute vectors
+                axes=numpy.zeros((3,3),dtype=float) # these dimensions because each atom position is a 3 element sequence
+                sel1 = atom1 # "resid 1 and name "+atom1
+                sel2 = atom2
+                if atom3 != '.': # XXX: for LJ sphere dimer simulations use atom3 = . in the config file
+                    sel3 = atom3
 
-            rCen=numpy.zeros(3)
-            mtot=0
-            for a in ionsCoord:
-                rCen+=a.position*a.mass
-                mtot+=a.mass
-            rCen=rCen/mtot
-            if debug:
-                print "-- Printing the .crd file"
-            outCrd = open(outname+".crd", 'w')
-            ntyp=0
-            i=-1
-            typlist=[]
-            atyp=numpy.zeros(len(ionsCoord),dtype=numpy.int)
-            for a in ionsCoord:
-                i+=1
-                inew=1
-                for jtyp in typlist:
-                    if a.type == jtyp[1]:
-                        atyp[i]=jtyp[0]
-                        inew=0
-                if inew == 1:
-                    ntyp+=1
-                    typlist.append([ntyp,a.type])
-                    atyp[i]=ntyp
-            i=0
-            outCrd.write("{:4d} {:4d}\n".format(len(ionsCoord),ntyp))
-            for a in ionsCoord:
-		rNew = numpy.dot(axes,a.position-rCen)
-                outCrd.write("{:3d} {:12.6f} {:12.6f} {:12.6f}\n".format(atyp[i],rNew[0],rNew[1],rNew[2])) # write rotated solute coordinates
-                i+=1
-            outCrd.close()
-        for a in H2OCoord.residues:
-            #rWat=a.atoms[1].position-rCen # selecting C1 in CL3 which is index 1
-            rWat = (a.atoms[1].position + d * ((a.atoms[1].position - a.atoms[0].position)/1.1)) - rCen # selecting C1 in CL3 which is index 1 and H1 (0), to make new vector to center of volume exclusion.
-            for i in range(3):
-                while rWat[i] < -hdims[i]:
-                    rWat[i]+=dims[i]
-                while rWat[i] > hdims[i]:
-                    rWat[i]-=dims[i]
-	    rWat=numpy.dot(axes,rWat)
-# Calculate x,y,z bin
-            x=rWat[0]+hrMax
-            if x < rMax and x > rMin:
-                y=rWat[1]+hrMax
-                if y < rMax and y > rMin:
-                    z=rWat[2]+hrMax
-                    if z < rMax and z > rMin:
-                        ix=int(x/binSize)
-                        iy=int(y/binSize)
-                        iz=int(z/binSize)
-                        nH2O[ix][iy][iz]+=1
-			pNow=a.atoms[1].position-a.atoms[0].position
-			pH2O[ix][iy][iz]+=pNow # pNow is in the Lab frame (unrotated frame, the frame of the box)
+                sel1_univ = coord.select_atoms(sel1)
+                sel2_univ = coord.select_atoms(sel2)
+                if atom3 != ".":
+                    sel3_univ = coord.select_atoms(sel3)
+    # Atom positions
+                if atom3 != '.':
+                    atom1_pos = sel1_univ.atoms[0].position
+                    atom2_pos = sel2_univ.atoms[0].position
+                    atom3_pos = sel3_univ.atoms[0].position
+                else:
+                    atom1_pos = sel1_univ.atoms[0].position
+                    atom2_pos = sel1_univ.atoms[1].position
+                    atom3_pos = numpy.zeros(3, dtype=float)
+    # Find 3 axes of solute
+                r1 = atom2_pos-atom1_pos
+                r1 /= math.sqrt(numpy.dot(r1,r1))
+                t1 = atom3_pos-atom1_pos
+                r3 = numpy.cross(r1,t1)
+                r3 /= math.sqrt(numpy.dot(r3,r3))
+                r2 = numpy.cross(r3,r1)
+                r2 /= math.sqrt(numpy.dot(r2,r2))
+    # Define 3 axes of solute
+                axes[0] = r1
+                axes[1] = r2
+                axes[2] = r3
+
+                rCen=numpy.zeros(3)
+                mtot=0
+                for a in ionsCoord:
+                    rCen+=a.position*a.mass
+                    mtot+=a.mass
+                rCen=rCen/mtot
+                if debug:
+                    print "-- Printing the .crd file"
+                outCrd = open(outname+".crd", 'w')
+                ntyp=0
+                i=-1
+                typlist=[]
+                atyp=numpy.zeros(len(ionsCoord),dtype=numpy.int)
+                for a in ionsCoord:
+                    i+=1
+                    inew=1
+                    for jtyp in typlist:
+                        if a.type == jtyp[1]:
+                            atyp[i]=jtyp[0]
+                            inew=0
+                    if inew == 1:
+                        ntyp+=1
+                        typlist.append([ntyp,a.type])
+                        atyp[i]=ntyp
+                i=0
+                outCrd.write("{:4d} {:4d}\n".format(len(ionsCoord),ntyp))
+                for a in ionsCoord:
+                    rNew = numpy.dot(axes,a.position-rCen)
+                    outCrd.write("{:3d} {:12.6f} {:12.6f} {:12.6f}\n".format(atyp[i],rNew[0],rNew[1],rNew[2])) # write rotated solute coordinates
+                    i+=1
+                outCrd.close()
+            for a in H2OCoord.residues:
+                #rWat=a.atoms[1].position-rCen # selecting C1 in CL3 which is index 1
+                rWat = (a.atoms[1].position + d * ((a.atoms[1].position - a.atoms[0].position)/1.1)) - rCen # selecting C1 in CL3 which is index 1 and H1 (0), to make new vector to center of volume exclusion.
+                for i in range(3):
+                    while rWat[i] < -hdims[i]:
+                        rWat[i]+=dims[i]
+                    while rWat[i] > hdims[i]:
+                        rWat[i]-=dims[i]
+                rWat=numpy.dot(axes,rWat)
+    # Calculate x,y,z bin
+                x=rWat[0]+hrMax
+                if x < rMax and x > rMin:
+                    y=rWat[1]+hrMax
+                    if y < rMax and y > rMin:
+                        z=rWat[2]+hrMax
+                        if z < rMax and z > rMin:
+                            ix=int(x/binSize)
+                            iy=int(y/binSize)
+                            iz=int(z/binSize)
+                            nH2O[ix][iy][iz]+=1
+                            pNow=a.atoms[1].position-a.atoms[0].position
+                            pH2O[ix][iy][iz]+=pNow # pNow is in the Lab frame (unrotated frame, the frame of the box)
 #
     dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*len(coord.trajectory))
     outFile = open(outname+".gr3", 'w')
     for i in range(binCount):
         for j in range(binCount):
             for k in range(binCount):
-		if nH2O[i][j][k] != 0: # so i dont get NaNs
-		    pH2O[i][j][k]/=nH2O[i][j][k]*1.1 # normalize by number of bins and equilibrium bond value
-		    pH2O[i][j][k]=numpy.dot(axes,pH2O[i][j][k]) # rotate into aligned frame (rotated frame, the frame of the solute axes)
+                if nH2O[i][j][k] != 0: # so i dont get NaNs
+                    pH2O[i][j][k]/=nH2O[i][j][k]*1.1 # normalize by number of bins and equilibrium bond value
+                    pH2O[i][j][k]=numpy.dot(axes,pH2O[i][j][k]) # rotate into aligned frame (rotated frame, the frame of the solute axes)
                 outFile.write("{:7.3f} {:7.3f} {:7.3f} {:18.12f} {:18.12f} {:18.12f} {:18.12f}\n".format((i+0.5)*binSize-hrMax,(j+0.5)*binSize-hrMax,(k+0.5)*binSize-hrMax,nH2O[i][j][k]*dxH2O,pH2O[i][j][k][0],pH2O[i][j][k][1],pH2O[i][j][k][2]))
     outFile.close()
 ####
