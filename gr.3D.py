@@ -65,6 +65,207 @@ def getPsf(cF):
             print('No PSF file found in config.')
             break
 
+# Read prmtop file and populate global variables
+def ParsePrmtopBonded(top_file):
+    global bond_fc,bond_equil_values,angle_fc,angle_equil_values,dihedral_fc,dihedral_period,dihedral_phase,nbonh,nbona,ntheta,ntheth,nphia,nphih,bondsh,bondsa,anglesh,anglesa,dihedralsh,dihedralsa,n_atoms,n_types,atom_names,atom_type_index,nb_parm_index,lj_a_coeff,lj_b_coeff
+        
+    param = open(top_file,'r')
+    pointers = numpy.zeros(31,dtype=numpy.int)
+    lines = param.readlines()
+    for i in range(len(lines)):	
+        if lines[i][0:14] == '%FLAG POINTERS':
+            for j in range(4):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    pointers[j*10+k] = int(temp[k])
+            n_atoms = pointers[0]
+            n_types = pointers[1]
+            nbonh = pointers[2]
+            nbona = pointers[12]
+            ntheth = pointers[4]
+            ntheta = pointers[13]
+            nphih = pointers[6]
+            nphia = pointers[14]
+            numbnd = pointers[15]
+            numang = pointers[16]
+            numtra = pointers[17]
+            n_type_lines = int(math.ceil(n_atoms/10.))
+            n_name_lines = int(math.ceil(n_atoms/20.))
+            n_nb_parm_lines = int(math.ceil(n_types*n_types/10.))
+            n_lj_param_lines = int(math.ceil((n_types*(n_types+1)/2)/5.))
+            n_bond_lines = int(math.ceil(numbnd/5.))
+            n_angle_lines = int(math.ceil(numang/5.))
+            n_dihedral_lines = int(math.ceil(numtra/5.))
+            n_bondsh_lines = int(math.ceil(nbonh*3/10.))
+            n_bondsa_lines = int(math.ceil(nbona*3/10.))
+            n_anglesh_lines = int(math.ceil(ntheth*4/10.))
+            n_anglesa_lines = int(math.ceil(ntheta*4/10.))
+            n_dihedralsh_lines = int(math.ceil(nphih*5/10.))
+            n_dihedralsa_lines = int(math.ceil(nphia*5/10.))
+            bond_fc = numpy.zeros(numbnd,dtype=numpy.float)
+            bond_equil_values = numpy.zeros(numbnd,dtype=numpy.float)
+            angle_fc = numpy.zeros(numang,dtype=numpy.float)
+            angle_equil_values = numpy.zeros(numang,dtype=numpy.float)
+            dihedral_fc = numpy.zeros(numtra,dtype=numpy.float)
+            dihedral_period = numpy.zeros(numtra,dtype=numpy.float)
+            dihedral_phase = numpy.zeros(numtra,dtype=numpy.float)
+            SCEE_factor = numpy.zeros(numtra,dtype=numpy.float)
+            SCNB_factor = numpy.zeros(numtra,dtype=numpy.float)
+            bondsh_linear = numpy.zeros(3*nbonh,dtype=int)
+            bondsa_linear = numpy.zeros(3*nbona,dtype=int)
+            bondsh = numpy.zeros((nbonh,3),dtype=int)
+            bondsa = numpy.zeros((nbona,3),dtype=int)
+            anglesh_linear = numpy.zeros(4*ntheth,dtype=int)
+            anglesa_linear = numpy.zeros(4*ntheta,dtype=int)
+            anglesh = numpy.zeros((ntheth,4),dtype=int)
+            anglesa = numpy.zeros((ntheta,4),dtype=int)
+            dihedralsh_linear = numpy.zeros(5*nphih,dtype=int)
+            dihedralsa_linear = numpy.zeros(5*nphia,dtype=int)
+            dihedralsh = numpy.zeros((nphih,5),dtype=int)
+            dihedralsa = numpy.zeros((nphia,5),dtype=int)
+            atom_names = []
+            atom_type_index = numpy.zeros((n_atoms),dtype=int)
+            nb_parm_index = numpy.zeros(n_types*n_types,dtype=int)
+            lj_a_coeff = numpy.zeros((n_types*(n_types+1))/2,dtype=float)
+            lj_b_coeff = numpy.zeros((n_types*(n_types+1))/2,dtype=float)
+
+        if lines[i][0:25] == '%FLAG BOND_FORCE_CONSTANT':
+            for j in range(n_bond_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    bond_fc[j*5+k] = float(temp[k])
+        if lines[i][0:22] == '%FLAG BOND_EQUIL_VALUE':
+            for j in range(n_bond_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    bond_equil_values[j*5+k] = float(temp[k])
+        if lines[i][0:26] == '%FLAG ANGLE_FORCE_CONSTANT':
+            for j in range(n_angle_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    angle_fc[j*5+k] = float(temp[k])
+        if lines[i][0:23] == '%FLAG ANGLE_EQUIL_VALUE':
+            for j in range(n_angle_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    angle_equil_values[j*5+k] = float(temp[k])
+        if lines[i][0:29] == '%FLAG DIHEDRAL_FORCE_CONSTANT':
+            for j in range(n_dihedral_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    dihedral_fc[j*5+k] = float(temp[k])
+        if lines[i][0:26] == '%FLAG DIHEDRAL_PERIODICITY':
+            for j in range(n_dihedral_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    dihedral_period[j*5+k] = float(temp[k])
+        if lines[i][0:20] == '%FLAG DIHEDRAL_PHASE':
+            for j in range(n_dihedral_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    dihedral_phase[j*5+k] = float(temp[k])
+        if lines[i][0:23] == '%FLAG SCEE_SCALE_FACTOR':
+            for j in range(n_dihedral_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    SCEE_factor[j*5+k] = float(temp[k])
+        if lines[i][0:23] == '%FLAG SCNB_SCALE_FACTOR':
+            for j in range(n_dihedral_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    SCNB_factor[j*5+k] = float(temp[k])
+        if lines[i][0:24] == '%FLAG BONDS_INC_HYDROGEN':
+            for j in range(n_bondsh_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    bondsh_linear[j*10+k] = int(temp[k])
+            for j in range(nbonh):
+                bondsh[j][0] = bondsh_linear[j*3]
+                bondsh[j][1] = bondsh_linear[j*3+1]
+                bondsh[j][2] = bondsh_linear[j*3+2]
+        if lines[i][0:28] == '%FLAG BONDS_WITHOUT_HYDROGEN':
+            for j in range(n_bondsa_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    bondsa_linear[j*10+k] = int(temp[k])			
+            for j in range(nbona):
+                bondsa[j][0] = bondsa_linear[j*3]
+                bondsa[j][1] = bondsa_linear[j*3+1]
+                bondsa[j][2] = bondsa_linear[j*3+2]
+        if lines[i][0:25] == '%FLAG ANGLES_INC_HYDROGEN':
+            for j in range(n_anglesh_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    anglesh_linear[j*10+k] = int(temp[k])
+            for j in range(ntheth):
+                anglesh[j][0] = anglesh_linear[j*4]
+                anglesh[j][1] = anglesh_linear[j*4+1]
+                anglesh[j][2] = anglesh_linear[j*4+2]
+                anglesh[j][3] = anglesh_linear[j*4+3]
+        if lines[i][0:29] == '%FLAG ANGLES_WITHOUT_HYDROGEN':
+            for j in range(n_anglesa_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    anglesa_linear[j*10+k] = int(temp[k])			
+            for j in range(ntheta):
+                anglesa[j][0] = anglesa_linear[j*4]
+                anglesa[j][1] = anglesa_linear[j*4+1]
+                anglesa[j][2] = anglesa_linear[j*4+2]
+                anglesa[j][3] = anglesa_linear[j*4+3]
+        if lines[i][0:28] == '%FLAG DIHEDRALS_INC_HYDROGEN':
+            for j in range(n_dihedralsh_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    dihedralsh_linear[j*10+k] = int(temp[k])
+            for j in range(nphih):
+                dihedralsh[j][0] = dihedralsh_linear[j*5]
+                dihedralsh[j][1] = dihedralsh_linear[j*5+1]
+                dihedralsh[j][2] = dihedralsh_linear[j*5+2]
+                dihedralsh[j][3] = dihedralsh_linear[j*5+3]
+                dihedralsh[j][4] = dihedralsh_linear[j*5+4]
+        if lines[i][0:32] == '%FLAG DIHEDRALS_WITHOUT_HYDROGEN':
+            for j in range(n_dihedralsa_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    dihedralsa_linear[j*10+k] = int(temp[k])			
+            for j in range(nphia):
+                dihedralsa[j][0] = dihedralsa_linear[j*5]
+                dihedralsa[j][1] = dihedralsa_linear[j*5+1]
+                dihedralsa[j][2] = dihedralsa_linear[j*5+2]
+                dihedralsa[j][3] = dihedralsa_linear[j*5+3]
+                dihedralsa[j][4] = dihedralsa_linear[j*5+4]
+        
+        if lines[i][0:15] == '%FLAG ATOM_NAME':
+            for j in range(n_name_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    atom_names.append(temp[k])
+
+        if lines[i][0:21] == '%FLAG ATOM_TYPE_INDEX':
+            for j in range(n_type_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    atom_type_index[j*10+k] = float(temp[k])
+
+        if lines[i][0:26] == '%FLAG NONBONDED_PARM_INDEX':
+            for j in range(n_nb_parm_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    nb_parm_index[j*10+k] = float(temp[k])
+
+        if lines[i][0:25] == '%FLAG LENNARD_JONES_ACOEF':
+            for j in range(n_lj_param_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    lj_a_coeff[j*5+k] = float(temp[k])
+            #print lj_a_coeff
+        if lines[i][0:25] == '%FLAG LENNARD_JONES_BCOEF':
+            for j in range(n_lj_param_lines):
+                temp = lines[i+2+j].split()
+                for k in range(len(temp)):
+                    lj_b_coeff[j*5+k] = float(temp[k])
+
+
 # Get name of PSF file from config file
 def getOut(cF):
     global outname
@@ -194,20 +395,36 @@ def printLogData(d):
         # some general log info
         print "\nNumber of time steps in coordinate trajectory:", len(coord.trajectory)
 
+
+# compute distance squared between two points taking into account periodic boundary conditions
+def computePbcDist2(r1, r2, box, hbox):
+    dr = r1-r2 # points from r2 to r1
+    for j in range(3):## 0, 1, 2
+        if dr[j] < -hbox[j]:
+            dr[j] += box[j] ## is the box automatically wrapped in .mdcrd files? Not when you put them in VMD! What if the distance is more than 1 box length away?
+        elif dr[j] > hbox[j]:
+            dr[j] -= box[j]
+    dist2 = numpy.dot(dr,dr)
+    return dist2,dr;
+
+
 # Iterate through all pairs of particles in all simulations,
 #    identifying each pair of particles, performing computations,
 #    and storing the results in a data set
 def iterate():
     global plots,dims,hdims
     hrMax=0.5*rMax
-    pH2O=numpy.zeros((binCount,binCount,binCount,3))
+    #pH2O=numpy.zeros((binCount,binCount,binCount,3))
     nH2O=numpy.zeros((binCount,binCount,binCount))
+    fH2O=numpy.zeros((binCount,binCount,binCount))
 
     if debug:
         print "-- Iterating through all particle pairs in first time step to establish pair types"
 
+    total_frames = 0
     for igo in range(len(coordDcd)):
         coord.load_new(coordDcd[igo])
+        total_frames += len(coord.trajectory)
         print "Now analyzing trajectory file: ", coordDcd[igo]
         for ts in coord.trajectory:                 # Iterate through all time steps
             dims = [coord.dimensions[0], coord.dimensions[1], coord.dimensions[2]]
@@ -282,7 +499,12 @@ def iterate():
                     outCrd.write("{:3d} {:12.6f} {:12.6f} {:12.6f}\n".format(atyp[i],rNew[0],rNew[1],rNew[2])) # write rotated solute coordinates
                     i+=1
                 outCrd.close()
+            # calculate dR the LJ--LJ distance.
+            ljDist2,ljdr = computePbcDist2(ionsCoord.atoms[0].position, ionsCoord.atoms[1].position, dims, hdims)
             for a in H2OCoord.residues:
+                dist2,dr = computePbcDist2(ionsCoord.atoms[0].position, a.atoms[1].position, dims, hdims)
+                dr /= numpy.sqrt(dist2) # normalize dr (vector from solvent to solute)
+                dist = numpy.sqrt(dist2)
                 #rWat=a.atoms[1].position-rCen # selecting C1 in CL3 which is index 1
                 rWat = (a.atoms[1].position + d * ((a.atoms[1].position - a.atoms[0].position)/1.1)) - rCen # selecting C1 in CL3 which is index 1 and H1 (0), to make new vector to center of volume exclusion.
                 for i in range(3):
@@ -302,18 +524,31 @@ def iterate():
                             iy=int(y/binSize)
                             iz=int(z/binSize)
                             nH2O[ix][iy][iz]+=1
-                            pNow=a.atoms[1].position-a.atoms[0].position
-                            pH2O[ix][iy][iz]+=pNow # pNow is in the Lab frame (unrotated frame, the frame of the box)
+                            #pNow=a.atoms[1].position-a.atoms[0].position
+                            #pH2O[ix][iy][iz]+=pNow # pNow is in the Lab frame (unrotated frame, the frame of the box)
+                            solvAtom_force_vec = numpy.zeros((3), dtype=float)
+                            for i in a.atoms:
+                                index = n_types*(atom_type_index[ionsCoord.atoms[0].index]-1) + atom_type_index[i.index] - 1 # the '-1' at the end is to zero-index the array because python arrays are zero-indexed and AMBER arrays are one-indexed.
+                                nb_index = nb_parm_index[index] - 1 # same reason as above for the '- 1' at the end.
+                                solvAtom_dist2,solvAtom_dr = computePbcDist2(ionsCoord.atoms[0].position, i.position, dims, hdims)
+                                
+                                # define r^(-6) for faster calculation of force
+                                r6 = solvAtom_dist2**(-3) 
+                                # force vector along solvAtom_dr (vector from solute ATOM to solvent ATOM)
+                                solvAtom_force_vec += ( r6 * ( 12. * r6 * lj_a_coeff[nb_index] - 6. * lj_b_coeff[nb_index] ) / solvAtom_dist2 ) * solvAtom_dr
+
+                            force_var = numpy.dot( numpy.dot(solvAtom_force_vec, dr)*dr, ljdr)/dist # project force from solvent ATOM onto vector from solvent RESIDUE
+                            fH2O[ix][iy][iz] += force_var
 #
-    dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*len(coord.trajectory))
+    dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*total_frames) # normalize by total # of frames
     outFile = open(outname+".gr3", 'w')
     for i in range(binCount):
         for j in range(binCount):
             for k in range(binCount):
-                if nH2O[i][j][k] != 0: # so i dont get NaNs
-                    pH2O[i][j][k]/=nH2O[i][j][k]*1.1 # normalize by number of bins and equilibrium bond value
-                    pH2O[i][j][k]=numpy.dot(axes,pH2O[i][j][k]) # rotate into aligned frame (rotated frame, the frame of the solute axes)
-                outFile.write("{:7.3f} {:7.3f} {:7.3f} {:18.12f} {:18.12f} {:18.12f} {:18.12f}\n".format((i+0.5)*binSize-hrMax,(j+0.5)*binSize-hrMax,(k+0.5)*binSize-hrMax,nH2O[i][j][k]*dxH2O,pH2O[i][j][k][0],pH2O[i][j][k][1],pH2O[i][j][k][2]))
+                #if nH2O[i][j][k] != 0: # so i dont get NaNs
+                    #pH2O[i][j][k]/=nH2O[i][j][k]*1.1 # normalize by number of bins and equilibrium bond value
+                    #pH2O[i][j][k]=numpy.dot(axes,pH2O[i][j][k]) # rotate into aligned frame (rotated frame, the frame of the solute axes)
+                outFile.write("{:7.3f} {:7.3f} {:7.3f} {:18.12f} {:18.12f}\n".format((i+0.5)*binSize-hrMax, (j+0.5)*binSize-hrMax, (k+0.5)*binSize-hrMax, nH2O[i][j][k]*dxH2O, fH2O[i][j][k]*dxH2O)) #,pH2O[i][j][k][0],pH2O[i][j][k][1],pH2O[i][j][k][2]))
     outFile.close()
 ####
 
@@ -329,6 +564,9 @@ def main():
 
     # Get name of PSF file from config file
     getPsf(configFile)
+    
+    # Parse topology file
+    ParsePrmtopBonded(psf)
     
     # Get name of OUTPUT file from config file
     getOut(configFile)
