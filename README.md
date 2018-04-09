@@ -6,3 +6,5 @@
 
 3D is g(x, y, z, xpol, ypol, zpol)
 
+convert3D-Cyl converts gr3D file into gr2D file for a system with cylindrical symmetry
+
