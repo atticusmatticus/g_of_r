@@ -439,7 +439,7 @@ def iterate():
                 axes=numpy.zeros((3,3),dtype=float) # these dimensions because each atom position is a 3 element sequence
                 sel1 = atom1 # "resid 1 and name "+atom1
                 sel2 = atom2
-                if atom3 != '.': # XXX: for LJ sphere dimer simulations use atom3 = . in the config file
+                if atom3 != '.': # NOTE: for LJ sphere dimer simulations use atom3 = . in the config file
                     sel3 = atom3
 
                 sel1_univ = coord.select_atoms(sel1)
@@ -537,11 +537,15 @@ def iterate():
                                 # force vector along solvAtom_dr (vector from solute ATOM to solvent ATOM)
                                 solvAtom_force_vec += ( r6 * ( 12. * r6 * lj_a_coeff[nb_index] - 6. * lj_b_coeff[nb_index] ) / solvAtom_dist2 ) * solvAtom_dr
 
-                            force_var = numpy.dot( numpy.dot(solvAtom_force_vec, dr)*dr, ljdr)/dist # project force from solvent ATOM onto vector from solvent RESIDUE
+                            force_var = numpy.dot( numpy.dot( solvAtom_force_vec, dr)*dr, ljdr)/dist # project force from solvent ATOM onto vector from solvent RESIDUE
                             fH2O[ix][iy][iz] += force_var
 #
     dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*total_frames) # normalize by total # of frames
     outFile = open(outname+".gr3", 'w')
+    outFile.write("# 1: Longitudinal Axis")
+    outFile.write("# 2: Radial Axis")
+    outFile.write("# 3: g(r)")
+    outFile.write("# 4: f(r)")
     for i in range(binCount):
         for j in range(binCount):
             for k in range(binCount):
