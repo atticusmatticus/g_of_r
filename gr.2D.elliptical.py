@@ -651,7 +651,7 @@ class gr2D():
                     BzC[a, 1, i] += Bz[a, 0, i, j] * Gr[a, 0, i, j]
                 ## XXX End of j loop
 
-                if GrC[a, i] > 0.5:
+                if GrC[a, i] > 0.0000001:
                     # sum of weighted forces divided by sum of weights gives weighted average.
                     FrC[a, 0, i] /= GrC[a, i]
                     # Std Dev using variance with weighted averages.
