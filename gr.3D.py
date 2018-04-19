@@ -542,10 +542,10 @@ def iterate():
 #
     dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*total_frames) # normalize by total # of frames
     outFile = open(outname+".gr3", 'w')
-    outFile.write("# 1: Longitudinal Axis")
-    outFile.write("# 2: Radial Axis")
-    outFile.write("# 3: g(r)")
-    outFile.write("# 4: f(r)")
+    outFile.write("# 1: Longitudinal Axis\n")
+    outFile.write("# 2: Radial Axis\n")
+    outFile.write("# 3: g(r)\n")
+    outFile.write("# 4: f(r)\n")
     for i in range(binCount):
         for j in range(binCount):
             for k in range(binCount):
