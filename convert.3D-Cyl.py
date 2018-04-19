@@ -1,3 +1,6 @@
+# USAGE:    python convert.3D-Cyl.py [same config file as gr.3D.py]
+# python 2.7.x
+
 import matplotlib.pyplot as plt
 import numpy
 import MDAnalysis
