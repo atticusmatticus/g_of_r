@@ -501,6 +501,7 @@ def iterate():
                 outCrd.close()
             # calculate dR the LJ--LJ distance.
             ljDist2,ljdr = computePbcDist2(ionsCoord.atoms[0].position, ionsCoord.atoms[1].position, dims, hdims)
+            ljdr /= numpy.sqrt(ljDist2)
             for a in H2OCoord.residues:
                 dist2,dr = computePbcDist2(ionsCoord.atoms[0].position, a.atoms[1].position, dims, hdims)
                 dr /= numpy.sqrt(dist2) # normalize dr (vector from solvent to solute)
@@ -537,7 +538,7 @@ def iterate():
                                 # force vector along solvAtom_dr (vector from solute ATOM to solvent ATOM)
                                 solvAtom_force_vec += ( r6 * ( 12. * r6 * lj_a_coeff[nb_index] - 6. * lj_b_coeff[nb_index] ) / solvAtom_dist2 ) * solvAtom_dr
 
-                            force_var = numpy.dot( numpy.dot( solvAtom_force_vec, dr)*dr, ljdr)/dist # project force from solvent ATOM onto vector from solvent RESIDUE
+                            force_var = numpy.dot( solvAtom_force_vec, ljdr) # project force from solvent ATOM onto vector from solvent RESIDUE
                             fH2O[ix][iy][iz] += force_var
 #
     dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*total_frames) # normalize by total # of frames
@@ -552,7 +553,7 @@ def iterate():
                 #if nH2O[i][j][k] != 0: # so i dont get NaNs
                     #pH2O[i][j][k]/=nH2O[i][j][k]*1.1 # normalize by number of bins and equilibrium bond value
                     #pH2O[i][j][k]=numpy.dot(axes,pH2O[i][j][k]) # rotate into aligned frame (rotated frame, the frame of the solute axes)
-                outFile.write("{:7.3f} {:7.3f} {:7.3f} {:18.12f} {:18.12f}\n".format((i+0.5)*binSize-hrMax, (j+0.5)*binSize-hrMax, (k+0.5)*binSize-hrMax, nH2O[i][j][k]*dxH2O, fH2O[i][j][k]*dxH2O)) #,pH2O[i][j][k][0],pH2O[i][j][k][1],pH2O[i][j][k][2]))
+                outFile.write("{:7.3f} {:7.3f} {:7.3f} {:18.12f} {:18.12f}\n".format((i+0.5)*binSize-hrMax, (j+0.5)*binSize-hrMax, (k+0.5)*binSize-hrMax, nH2O[i][j][k]*dxH2O, fH2O[i][j][k]/total_frames)) #,pH2O[i][j][k][0],pH2O[i][j][k][1],pH2O[i][j][k][2]))
     outFile.close()
 ####
 
