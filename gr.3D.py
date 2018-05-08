@@ -357,7 +357,7 @@ def initMDA():
     coord = MDAnalysis.Universe(psf, coordDcd[0])
     dims = [coord.dimensions[0], coord.dimensions[1], coord.dimensions[2]]
     hdims = [dims[0]/2,dims[1]/2,dims[2]/2]
-    rMaxLimit = numpy.sqrt((dims[0]**2) + (dims[1]**2) + (dims[2]**2))
+    rMaxLimit = ((dims[0]**2) + (dims[1]**2) + (dims[2]**2))**0.5
     if rMax > rMaxLimit:
         rMax = rMaxLimit
         m = True
@@ -457,12 +457,12 @@ def iterate():
                     atom3_pos = numpy.zeros(3, dtype=float)
     # Find 3 axes of solute
                 r1 = atom2_pos-atom1_pos
-                r1 /= math.sqrt(numpy.dot(r1,r1))
+                r1 /= (numpy.dot(r1,r1))**0.5
                 t1 = atom3_pos-atom1_pos
                 r3 = numpy.cross(r1,t1)
-                r3 /= math.sqrt(numpy.dot(r3,r3))
+                r3 /= (numpy.dot(r3,r3))**0.5
                 r2 = numpy.cross(r3,r1)
-                r2 /= math.sqrt(numpy.dot(r2,r2))
+                r2 /= (numpy.dot(r2,r2))**0.5
     # Define 3 axes of solute
                 axes[0] = r1
                 axes[1] = r2
@@ -501,11 +501,11 @@ def iterate():
                 outCrd.close()
             # calculate dR the LJ--LJ distance.
             ljDist2,ljdr = computePbcDist2(ionsCoord.atoms[0].position, ionsCoord.atoms[1].position, dims, hdims)
-            ljdr /= numpy.sqrt(ljDist2)
+            ljdr /= (ljDist2)**0.5
             for a in H2OCoord.residues:
                 dist2,dr = computePbcDist2(ionsCoord.atoms[0].position, a.atoms[1].position, dims, hdims)
-                dr /= numpy.sqrt(dist2) # normalize dr (vector from solvent to solute)
-                dist = numpy.sqrt(dist2)
+                dr /= (dist2)**0.5 # normalize dr (vector from solvent to solute)
+                dist = (dist2)**0.5
                 #rWat=a.atoms[1].position-rCen # selecting C1 in CL3 which is index 1
                 rWat = (a.atoms[1].position + d * ((a.atoms[1].position - a.atoms[0].position)/1.1)) - rCen # selecting C1 in CL3 which is index 1 and H1 (0), to make new vector to center of volume exclusion.
                 for i in range(3):
