@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy
 import MDAnalysis
 import time
-import math
+from math import *
 import sys
 
 
@@ -89,19 +89,19 @@ def ParsePrmtopBonded(top_file):
             numbnd = pointers[15]
             numang = pointers[16]
             numtra = pointers[17]
-            n_type_lines = int(math.ceil(n_atoms/10.))
-            n_name_lines = int(math.ceil(n_atoms/20.))
-            n_nb_parm_lines = int(math.ceil(n_types*n_types/10.))
-            n_lj_param_lines = int(math.ceil((n_types*(n_types+1)/2)/5.))
-            n_bond_lines = int(math.ceil(numbnd/5.))
-            n_angle_lines = int(math.ceil(numang/5.))
-            n_dihedral_lines = int(math.ceil(numtra/5.))
-            n_bondsh_lines = int(math.ceil(nbonh*3/10.))
-            n_bondsa_lines = int(math.ceil(nbona*3/10.))
-            n_anglesh_lines = int(math.ceil(ntheth*4/10.))
-            n_anglesa_lines = int(math.ceil(ntheta*4/10.))
-            n_dihedralsh_lines = int(math.ceil(nphih*5/10.))
-            n_dihedralsa_lines = int(math.ceil(nphia*5/10.))
+            n_type_lines = int(ceil(n_atoms/10.))
+            n_name_lines = int(ceil(n_atoms/20.))
+            n_nb_parm_lines = int(ceil(n_types*n_types/10.))
+            n_lj_param_lines = int(ceil((n_types*(n_types+1)/2)/5.))
+            n_bond_lines = int(ceil(numbnd/5.))
+            n_angle_lines = int(ceil(numang/5.))
+            n_dihedral_lines = int(ceil(numtra/5.))
+            n_bondsh_lines = int(ceil(nbonh*3/10.))
+            n_bondsa_lines = int(ceil(nbona*3/10.))
+            n_anglesh_lines = int(ceil(ntheth*4/10.))
+            n_anglesa_lines = int(ceil(ntheta*4/10.))
+            n_dihedralsh_lines = int(ceil(nphih*5/10.))
+            n_dihedralsa_lines = int(ceil(nphia*5/10.))
             bond_fc = numpy.zeros(numbnd,dtype=numpy.float)
             bond_equil_values = numpy.zeros(numbnd,dtype=numpy.float)
             angle_fc = numpy.zeros(numang,dtype=numpy.float)
@@ -357,7 +357,7 @@ def initMDA():
     coord = MDAnalysis.Universe(psf, coordDcd[0])
     dims = [coord.dimensions[0], coord.dimensions[1], coord.dimensions[2]]
     hdims = [dims[0]/2,dims[1]/2,dims[2]/2]
-    rMaxLimit = ((dims[0]**2) + (dims[1]**2) + (dims[2]**2))**0.5
+    rMaxLimit = sqrt((dims[0]**2) + (dims[1]**2) + (dims[2]**2))
     if rMax > rMaxLimit:
         rMax = rMaxLimit
         m = True
@@ -457,12 +457,12 @@ def iterate():
                     atom3_pos = numpy.zeros(3, dtype=float)
     # Find 3 axes of solute
                 r1 = atom2_pos-atom1_pos
-                r1 /= (numpy.dot(r1,r1))**0.5
+                r1 /= sqrt(numpy.dot(r1,r1))
                 t1 = atom3_pos-atom1_pos
                 r3 = numpy.cross(r1,t1)
-                r3 /= (numpy.dot(r3,r3))**0.5
+                r3 /= sqrt(numpy.dot(r3,r3))
                 r2 = numpy.cross(r3,r1)
-                r2 /= (numpy.dot(r2,r2))**0.5
+                r2 /= sqrt(numpy.dot(r2,r2))
     # Define 3 axes of solute
                 axes[0] = r1
                 axes[1] = r2
@@ -501,11 +501,11 @@ def iterate():
                 outCrd.close()
             # calculate dR the LJ--LJ distance.
             ljDist2,ljdr = computePbcDist2(ionsCoord.atoms[0].position, ionsCoord.atoms[1].position, dims, hdims)
-            ljdr /= (ljDist2)**0.5
+            ljdr /= sqrt(ljDist2)
             for a in H2OCoord.residues:
                 dist2,dr = computePbcDist2(ionsCoord.atoms[0].position, a.atoms[1].position, dims, hdims)
-                dr /= (dist2)**0.5 # normalize dr (vector from solvent to solute)
-                dist = (dist2)**0.5
+                dr /= sqrt(dist2) # normalize dr (vector from solvent to solute)
+                dist = sqrt(dist2)
                 #rWat=a.atoms[1].position-rCen # selecting C1 in CL3 which is index 1
                 rWat = (a.atoms[1].position + d * ((a.atoms[1].position - a.atoms[0].position)/1.1)) - rCen # selecting C1 in CL3 which is index 1 and H1 (0), to make new vector to center of volume exclusion.
                 for i in range(3):
