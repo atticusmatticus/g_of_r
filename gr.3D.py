@@ -504,8 +504,8 @@ def iterate():
             ljdr /= sqrt(ljDist2)
             for a in H2OCoord.residues:
                 dist2,dr = computePbcDist2(ionsCoord.atoms[0].position, a.atoms[1].position, dims, hdims)
-                dr /= sqrt(dist2) # normalize dr (vector from solvent to solute)
                 dist = sqrt(dist2)
+                dr /= dist # normalize dr (vector from solvent to solute)
                 #rWat=a.atoms[1].position-rCen # selecting C1 in CL3 which is index 1
                 rWat = (a.atoms[1].position + d * ((a.atoms[1].position - a.atoms[0].position)/1.1)) - rCen # selecting C1 in CL3 which is index 1 and H1 (0), to make new vector to center of volume exclusion.
                 for i in range(3):
@@ -543,10 +543,11 @@ def iterate():
 #
     dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*total_frames) # normalize by total # of frames
     outFile = open(outname+".gr3", 'w')
-    outFile.write("# 1: Longitudinal Axis\n")
-    outFile.write("# 2: Radial Axis\n")
-    outFile.write("# 3: g(r)\n")
-    outFile.write("# 4: f(r)\n")
+    outFile.write("# 1: X Axis\n")
+    outFile.write("# 2: Y Axis\n")
+    outFile.write("# 3: Z Axis\n")
+    outFile.write("# 4: g(r)\n")
+    outFile.write("# 5: f(r)\n")
     for i in range(binCount):
         for j in range(binCount):
             for k in range(binCount):
