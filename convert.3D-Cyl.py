@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy
 import MDAnalysis
 import time
-import math
+from math import *
 import sys
 
 
@@ -131,31 +131,39 @@ def convertCylindrical():
     fxyz = OutFile3D[:,4]
     binCount = int((x_axis[-1] - x_axis[0])/ binSize) + 1
     binCount2 = binCount * binCount
-    hrMax = rMax*0.5
+    hrMax = rMax / 2
 
+    nr = numpy.zeros(binCount, dtype=int)
     gr = numpy.zeros((binCount,binCount), dtype=float)
     fr = numpy.zeros((binCount,binCount), dtype=float)
 
     for i in range(binCount):
         ix = int(((x_axis[i*binCount2]+binSize)-(x_axis[0]+binSize))/binSize)
         for j in range(binCount):
+            index=i*binCount2+j*binCount
             for k in range(binCount):
-                r = numpy.sqrt(y_axis[i*binCount2+j*binCount]**2 + z_axis[i*binCount2+j*binCount+k]**2)
+                r = sqrt(y_axis[index]**2 + z_axis[index+k]**2)
                 ir = int(r/binSize)
-                #print 'ir: ', ir
-                #if ir < binCount:
-                    #gr[ix][ir] += gxyz[i][j][k]
-                gr[ix][ir] += gxyz[i*binCount2+j*binCount+k] / (2*numpy.pi*r) * binSize
-                fr[ix][ir] += fxyz[i*binCount2+j*binCount+k] / (2*numpy.pi*r) * binSize
-                # FIXME: these need to be scaled by Jacobian ie. r
+                nr[ir] += 1
+                gr[ix][ir] += gxyz[index+k] #/(2*pi*r) * binSize # normalizing by the Jacobean doesn't work b/c cartesian bins dont translate smoothly into radial ones
+                fr[ix][ir] += fxyz[index+k] #/(2*pi*r) * binSize
+
+    im,m = min(enumerate(nr), key=lambda x: x[1] if x[1] > 0 else float('inf')) # find minimum value of nr that is > 0, m. and the index of that value, im.
+    # Normalize gr and fr arrays
+    for ir in range(binCount):
+        if nr[ir] > 0:
+            norm = binSize/(nr[ir]/m)
+            for ix in range(binCount):
+                gr[ix][ir] *= norm
+                fr[ix][ir] *= norm
 
     # the x-axis is the longitudinal axis
     # so new plot will be a function of x and r. Where r is the radius in the yz plane
     outFile = open(outname+".cyl.gr3", 'w')
     outFile.write("# 1: x Distance\n")
     outFile.write("# 2: r Distance\n")
-    outFile.write("# 4: g(r) Density\n")
-    outFile.write("# 5: Force\n")
+    outFile.write("# 3: g(r) Density\n")
+    outFile.write("# 4: Force\n")
     for ix in range(binCount):
         for ir in range(binCount):
             outFile.write("{:7.3f} {:7.3f} {:18.12f} {:18.12f}\n".format( (ix+0.5)*binSize-hrMax, (ir+0.5)*binSize, gr[ix][ir], fr[ix][ir] ))
