@@ -433,10 +433,18 @@ class gr2D():
     def normalizeGr(self, Gr):
         ## Normalize
         ## have to normalize after volume correction because the 'bulk' g(r) value changes after volume correction.
+        norm_points = 10
         for a in range(nAtomTypes):
+            # normalize by the last 'norm_points' points
+            g_norm = np.zeros(num_ang_bins, dtype=float)
+            for k in range(num_ang_bins):
+                for n in range(norm_points):
+                    g_norm[k] += Gr[a, 0, -(n+1), k]
+                g_norm[k] /= float(norm_points)
+
             for j in range(num_ang_bins):
                 for i in range(num_dist_bins):
-                    Gr[a, 0, i, j] /= Gr[a, 0, -1, j]
+                    Gr[a, 0, i, j] /= g_norm[j]
 
 
     def integrateDirectSoluteSolventFrc(self, Fr, U_dir):
