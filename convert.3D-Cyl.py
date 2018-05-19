@@ -146,13 +146,13 @@ def convertCylindrical():
                 ir = int(r/binSize)
                 nr[ir] += 1
                 gr[ix][ir] += gxyz[index+k] #/(2*pi*r) * binSize # normalizing by the Jacobean doesn't work b/c cartesian bins dont translate smoothly into radial ones
-                fr[ix][ir] += fxyz[index+k] #/(2*pi*r) * binSize
+                fr[ix][ir] += fxyz[index+k] *(2*pi*r) / binSize # multiply by jacobian because I divide by discritized jacobean below. FIXME
 
     im,m = min(enumerate(nr), key=lambda x: x[1] if x[1] > 0 else float('inf')) # find minimum value of nr that is > 0, m. and the index of that value, im.
     # Normalize gr and fr arrays
     for ir in range(binCount):
         if nr[ir] > 0:
-            norm = binSize/(nr[ir]/m)
+            norm = binSize/(nr[ir]/m) # m vs binCount here? FIXME
             for ix in range(binCount):
                 gr[ix][ir] *= norm
                 fr[ix][ir] *= norm
@@ -165,7 +165,7 @@ def convertCylindrical():
     outFile.write("# 3: g(r) Density\n")
     outFile.write("# 4: Force\n")
     for ix in range(binCount):
-        for ir in range(binCount):
+        for ir in range(int(binCount/2)):
             outFile.write("{:7.3f} {:7.3f} {:18.12f} {:18.12f}\n".format( (ix+0.5)*binSize-hrMax, (ir+0.5)*binSize, gr[ix][ir], fr[ix][ir] ))
     outFile.close()
 
