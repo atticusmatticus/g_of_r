@@ -501,7 +501,7 @@ def iterate():
                 outCrd.close()
             # calculate dR the LJ--LJ distance.
             ljDist2,ljdr = computePbcDist2(ionsCoord.atoms[0].position, ionsCoord.atoms[1].position, dims, hdims)
-            ljdr /= sqrt(ljDist2)
+            ljdr /= sqrt(ljDist2) # normalize ljdr
             for a in H2OCoord.residues:
                 dist2,dr = computePbcDist2(ionsCoord.atoms[0].position, a.atoms[1].position, dims, hdims)
                 dist = sqrt(dist2)
@@ -528,7 +528,7 @@ def iterate():
                             #pNow=a.atoms[1].position-a.atoms[0].position
                             #pH2O[ix][iy][iz]+=pNow # pNow is in the Lab frame (unrotated frame, the frame of the box)
                             solvAtom_force_vec = numpy.zeros((3), dtype=float)
-                            for i in a.atoms:
+                            for i in a.atoms: # loop through the atoms of the solvent residue, 'a'.
                                 index = n_types*(atom_type_index[ionsCoord.atoms[0].index]-1) + atom_type_index[i.index] - 1 # the '-1' at the end is to zero-index the array because python arrays are zero-indexed and AMBER arrays are one-indexed.
                                 nb_index = nb_parm_index[index] - 1 # same reason as above for the '- 1' at the end.
                                 solvAtom_dist2,solvAtom_dr = computePbcDist2(ionsCoord.atoms[0].position, i.position, dims, hdims)
@@ -538,7 +538,7 @@ def iterate():
                                 # force vector along solvAtom_dr (vector from solute ATOM to solvent ATOM)
                                 solvAtom_force_vec += ( r6 * ( 12. * r6 * lj_a_coeff[nb_index] - 6. * lj_b_coeff[nb_index] ) / solvAtom_dist2 ) * solvAtom_dr
 
-                            force_var = numpy.dot( solvAtom_force_vec, ljdr) # project force from solvent ATOM onto vector from solvent RESIDUE
+                            force_var = numpy.dot( solvAtom_force_vec, ljdr) # project force from solvent ATOMs onto LJ -- LJ vector
                             fH2O[ix][iy][iz] += force_var
 #
     dxH2O=1/(binSize**3/dims[0]/dims[1]/dims[2]*len(H2OCoord.residues)*total_frames) # normalize by total # of frames
