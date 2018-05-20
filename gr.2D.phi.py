@@ -99,6 +99,7 @@ class gr2D():
     ## Read configuration file and populate global variables
     def ParseConfigFile(self, cfg_file):
             global top_file, traj_file, out_file, collapsed_file, hist_dist_min, hist_dist_max, bin_dist_size, hist_theta_min, hist_theta_max, bin_theta_size, T, solute_resname, solvent_resname, d, hist_phi_min, hist_phi_max, bin_phi_size
+            traj_file = []
             f = open(cfg_file)
             for line in f:
                 # first remove comments
@@ -113,7 +114,7 @@ class gr2D():
                     if option.lower()=='topfile':
                         top_file = value
                     elif option.lower()=='trajfile':
-                        traj_file = value
+                        traj_file.append(value)
                     elif option.lower()=='outfile':
                         out_file = value
                     elif option.lower()=='collapsed_outfile':
@@ -394,39 +395,41 @@ class gr2D():
     # loop through trajectory
     def iterate(self, Gr, Fr, Bz):
         ## initiate MDAnalysis Universe.
-        u = MDAnalysis.Universe(top_file, traj_file)
+        u = MDAnalysis.Universe(top_file, traj_file[0])
         solute_sel = u.select_atoms('resname ' + solute_resname)
         solvent_sel = u.select_atoms('resname ' + solvent_resname)
+        for igo in range(len(traj_file)):
+            u.load_new(traj_file[igo])
+            print "Now analyzing trajectory file: ", traj_file[igo]
+            for ts in u.trajectory:## Loop over all time steps in the trajectory.
+                if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
+                #if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
 
-        for ts in u.trajectory:## Loop over all time steps in the trajectory.
-            if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
-            #if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
+                    ## Progress Bar
+                    sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(u.trajectory))) * 100))
+                    sys.stdout.flush()
 
-                ## Progress Bar
-                sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(u.trajectory))) * 100))
-                sys.stdout.flush()
+                    box = u.dimensions[:3]## define box and half box here so we save division calculation for every distance pair when we calculate 'dist' below.
+                    hbox = u.dimensions[:3]/2.0
 
-                box = u.dimensions[:3]## define box and half box here so we save division calculation for every distance pair when we calculate 'dist' below.
-                hbox = u.dimensions[:3]/2.0
+                    ## Compute all pairwise distances
+                    lj2_dist2,lj2_dr = self.computePbcDist2(solute_sel.atoms[0].position, solute_sel.atoms[1].position, box, hbox)# Calculate the vector (lj2_dr) between the two LJ particles.
+                    for a in solute_sel.atoms:
+                        for b in solvent_sel.residues:
+                            rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
+                            ## Bin the solvent for g(r) only if the solvent is on the far side of the respective solute atom
+                            solvRes_dist2,solvRes_dr = self.computePbcDist2(a.position, rSolv, box, hbox) # distance between solute and excluded volume center of CL3
+                            if a.index == 0: # if first LJ particle is selected...
+                                if solvRes_dist2 <= hist_dist_max2:
+                                    if np.dot(lj2_dr,solvRes_dr) < 0: # Is dr dot product pointing right direction? Then compute sqrt
+                                        if hist_dist_min2 < solvRes_dist2 < hist_dist_max2:
+                                            self.computeGr(a, b, solvRes_dist2, solvRes_dr, a.index, box, hbox, Gr, Fr, Bz)
 
-                ## Compute all pairwise distances
-                lj2_dist2,lj2_dr = self.computePbcDist2(solute_sel.atoms[0].position, solute_sel.atoms[1].position, box, hbox)# Calculate the vector (lj2_dr) between the two LJ particles.
-                for a in solute_sel.atoms:
-                    for b in solvent_sel.residues:
-                        rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
-                        ## Bin the solvent for g(r) only if the solvent is on the far side of the respective solute atom
-                        solvRes_dist2,solvRes_dr = self.computePbcDist2(a.position, rSolv, box, hbox) # distance between solute and excluded volume center of CL3
-                        if a.index == 0: # if first LJ particle is selected...
-                            if solvRes_dist2 <= hist_dist_max2:
-                                if np.dot(lj2_dr,solvRes_dr) < 0: # Is dr dot product pointing right direction? Then compute sqrt
-                                    if hist_dist_min2 < solvRes_dist2 < hist_dist_max2:
-                                        self.computeGr(a, b, solvRes_dist2, solvRes_dr, a.index, box, hbox, Gr, Fr, Bz)
-
-                        elif a.index == 1: # if second LJ particle is selected...
-                            if solvRes_dist2 <= hist_dist_max2:
-                                if np.dot(lj2_dr,solvRes_dr) > 0: # Is dr dot product pointing right direction? Then compute sqrt
-                                    if hist_dist_min2 < solvRes_dist2 < hist_dist_max2:
-                                        self.computeGr(a, b, solvRes_dist2, solvRes_dr, a.index, box, hbox, Gr, Fr, Bz)
+                            elif a.index == 1: # if second LJ particle is selected...
+                                if solvRes_dist2 <= hist_dist_max2:
+                                    if np.dot(lj2_dr,solvRes_dr) > 0: # Is dr dot product pointing right direction? Then compute sqrt
+                                        if hist_dist_min2 < solvRes_dist2 < hist_dist_max2:
+                                            self.computeGr(a, b, solvRes_dist2, solvRes_dr, a.index, box, hbox, Gr, Fr, Bz)
 
 
     def averageFrBz(self, Gr, Fr, Bz):
@@ -466,11 +469,11 @@ class gr2D():
         for a in range(nAtomTypes):
             # normalize by the last 'norm_points' distance points
             g_norm = np.zeros((num_theta_bins,num_phi_bins), dtype=float)
-            for p in range(num_phi_bins):
-                for t in range(num_theta_bins):
+            for k in range(num_phi_bins):
+                for j in range(num_theta_bins):
                     for n in range(norm_points):
-                        g_norm[t, p] += Gr[a, 0, -(n+1), t, p]
-                g_norm[t, p] /= float(norm_points)
+                        g_norm[j, k] += Gr[a, 0, -(n+1), j, k]
+                    g_norm[j, k] /= float(norm_points)
 
             for k in range(num_phi_bins):
                 for j in range(num_theta_bins):
@@ -642,17 +645,17 @@ class gr2D():
         self.writeOutputGr2D(out_file, Gr, Fr, Bz, U_dir)
 
         ##########
-#        print 'Starting Collapsed'
+        print 'Starting Collapsed'
         # initialize collapsed arrays
-#        GrC,FrC,BzC = self.initializeArraysCollapsed()
+        GrC,FrC,BzC = self.initializeArraysCollapsed()
 
         # collapse the 2D arrays into the 1D collapsed arrays
-#        print 'Collapsing arrays'
-#        self.collapseArrays(GrC, FrC, BzC, Gr, Fr, Bz)
+        print 'Collapsing arrays'
+        self.collapseArrays(GrC, FrC, BzC, Gr, Fr, Bz)
 
         # write collapsed output file
-#        print 'Writing collapsed output file'
-#        self.writeOutputCollapsed(collapsed_file, GrC, FrC, BzC)
+        print 'Writing collapsed output file'
+        self.writeOutputCollapsed(collapsed_file, GrC, FrC, BzC)
 
         print 'All Done!'
 
