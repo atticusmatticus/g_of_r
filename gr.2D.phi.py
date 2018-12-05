@@ -22,53 +22,46 @@ class gr2D():
 
 
     # compute g[r,cos(th)], <f.r>[r,cos(th)], and <boltzmann_factor_of_LJ_potential>[r,cos(th)]
-    #       dist2       =   distance squared from solute atom to solvent residue
-    #       solvRes_dr  =   vector from solute atom to solvent residue
-    #       Gr          =   g[r,cos(theta)] count array
-    #       Fr          =   average LJ force dotted into radial vector
-    #       Bz          =   average LJ boltzmann factor
-    #
     def computeGr(self, solute_atom, solvent_residue, solvRes_dist2, solvRes_dr, AtomType, box, hbox, Gr, Fr, Bz):
         solvRes_dist = sqrt(solvRes_dist2)
         ## Calculate Polarization Magnitude Along Radial Vector From Solute
-        pHC = solvent_residue.atoms[1].position - solvent_residue.atoms[0].position # dipole points from H to C in CL3.
-        pHC_norm = sqrt(np.dot(pHC,pHC)) # Magnitude of solvent dipole vector.
-        cosTh = np.dot(pHC,solvRes_dr) / (solvRes_dist * pHC_norm) # Projection of two normalized vectors == cos[theta]
+        pCH = solvent_residue.atoms[0].position - solvent_residue.atoms[1].position # dipole points from C to H in CL3.
+        pCH_norm = sqrt(np.dot(pCH,pCH)) # Magnitude of solvent dipole vector.
+        cosTh = np.dot(pCH,solvRes_dr) / (solvRes_dist * pCH_norm) # Projection of two normalized vectors == cos[theta]
         #
-        pClC = solvent_residue.atoms[1].position - solvent_residue.atoms[2].position # dipole points from Cl1 to C in CL3.
-        pClC_norm = sqrt(np.dot(pClC,pClC)) # Magnitude of solvent dipole vector.
-#        n_a = np.cross(-(pHC), solvRes_dr) / (pHC_norm * solvRes_dist) # vector normal to the LJ-C-H plane
-#        n_b = np.cross(solvRes_dr, n_a) / (solvRes_dist) # vector normal to the n_a normal plane which also contains solvRes_dr
-#        projClC = ((np.dot(pClC,n_b))*n_b - pClC) # projection of pClC onto the plane normal to n_b
-#        projClC /= sqrt(np.dot(projClC,projClC)) # normalize
-#        phi = acos( (np.dot(solvRes_dr,projClC)/(solvRes_dist)) )
-#        print 'proj old: ',phi
-#        if phi > 2*pi/3.:
-#            phi -= 2*pi/3.
-#        print 'proj new: ',phi
+        pCCl = solvent_residue.atoms[2].position - solvent_residue.atoms[1].position # vector points from C to Cl1 in CL3.
+        pCCl_norm = sqrt(np.dot(pCCl,pCCl)) # Magnitude of solvent CCl vector.
         # XXX: what i want is the angle between the LJ-C-H plane and the H-C-Cl1 plane. Find the angle between planes by measuring the angle between the plane normal vectors.
-        n_a = np.cross(-pHC, solvRes_dr) # vector normal to the LJ-C-H plane
-        n_b = np.cross(-pHC, -pClC) # vector normal to the H-C-Cl1 plane
+        n_a = np.cross(pCH, solvRes_dr) # vector normal to the LJ-C-H plane
+        n_b = np.cross(pCH, pCCl) # vector normal to the H-C-Cl1 plane
         cosPhi = ( np.dot(n_a,n_b) / ( sqrt( np.dot(n_a,n_a)*np.dot(n_b,n_b) ) ) )
         if cosPhi > 1.0:
-            phi = 1.0
+            phi = 0.
         elif cosPhi < -1.0:
-            phi = -1.0
+            phi = pi
         else:
-            phi = acos( np.dot(n_a,n_b) / (sqrt(np.dot(n_a,n_a)*np.dot(n_b,n_b))) )
-        if phi > 2*pi/3.:
-            phi -= 2*pi/3.
+            phi = acos( cosPhi )
+
+        if phi >= pi23:
+            phi -= pi23
+            sign = 1
+        elif pi3 < phi < pi23:
+            phi = pi23 - phi
+            sign = -1
+        else:
+            sign = 1
+
         #
         # bin for spherical
         dist_bin = int((solvRes_dist - hist_dist_min)/bin_dist_size)
         theta_bin = int((cosTh - hist_theta_min)/bin_theta_size)
         phi_bin = int((phi - hist_phi_min)/bin_phi_size)
-        if theta_bin >= num_theta_bins:
+        if theta_bin == num_theta_bins:
             theta_bin = -1
-        if phi_bin >= num_phi_bins:
+        if phi_bin == num_phi_bins:
             phi_bin = -1
 
-        ## Calculate non_bonded_index and LJ interaction energy
+        ## Calculate non_bonded_index, LJ interaction energy, and the LJ force
         solvAtom_force_vec = np.zeros((3),dtype=float)
         energy = 0.0
         for i in solvent_residue.atoms: # loop through atoms of the solvent molecule 'b'.
@@ -83,8 +76,25 @@ class gr2D():
             # LJ energy of atoms summed
             energy += r6 * ( r6 * lj_a_coeff[nb_index] - lj_b_coeff[nb_index] ) 
 
+        force_r = np.dot( solvAtom_force_vec, solvRes_dr)/solvRes_dist # project force from solvent ATOM onto vector from solvent RESIDUE
+        t_vec = np.cross(solvRes_dr, pCH)
+        t_norm = sqrt(np.dot(t_vec,t_vec))
+        tdotrcl = np.dot(t_vec,pCCl)#/(t_norm*pCCl_norm)
+        if tdotrcl < 0:
+            sign = -sign
+        #print "t:", t_vec, sqrt(np.dot(t_vec,t_vec))/t_norm
+        s_vec = np.cross(t_vec, solvRes_dr)
+        s_norm = sqrt(np.dot(s_vec,s_vec))
+        #print "s, p:", s_vec, pCH/pCH_norm, sqrt(np.dot(s_vec,s_vec))
+        #print "r:", solvRes_dr/solvRes_dist
+        #print "r.s", np.dot(solvRes_dr/solvRes_dist,s_vec/s_norm)
+        #print "r.t", np.dot(solvRes_dr/solvRes_dist,t_vec/t_norm)
+        #print "s.t", np.dot(s_vec/s_norm,t_vec/t_norm)
+        #print "\n"
+        force_s = np.dot(solvAtom_force_vec, s_vec)/s_norm # force projected along s, orthogonal to r and coplanar with p.
+        force_t = sign*np.dot(solvAtom_force_vec, t_vec)/t_norm # force projected along t, orthogonal to r and s and p.
+        #
         energy_var = exp( - energy / kT )
-        force_var = np.dot( solvAtom_force_vec, solvRes_dr)/solvRes_dist # project force from solvent ATOM onto vector from solvent RESIDUE
 
         ## Sum the LJ energy and _then_ put it in the exponential. Not a sum of the individual boltzmanns.
         Gr[AtomType, :, dist_bin, theta_bin, phi_bin] += 1.
@@ -92,8 +102,12 @@ class gr2D():
         Bz[AtomType, 0, dist_bin, theta_bin, phi_bin] += energy_var
         Bz[AtomType, 1, dist_bin, theta_bin, phi_bin] += energy_var * energy_var
 
-        Fr[AtomType, 0, dist_bin, theta_bin, phi_bin] += force_var
-        Fr[AtomType, 1, dist_bin, theta_bin, phi_bin] += force_var * force_var
+        Fr[AtomType, 0, 0, dist_bin, theta_bin, phi_bin] += force_r
+        Fr[AtomType, 0, 1, dist_bin, theta_bin, phi_bin] += force_r * force_r
+        Fr[AtomType, 1, 0, dist_bin, theta_bin, phi_bin] += force_s
+        Fr[AtomType, 1, 1, dist_bin, theta_bin, phi_bin] += force_s * force_s
+        Fr[AtomType, 2, 0, dist_bin, theta_bin, phi_bin] += force_t
+        Fr[AtomType, 2, 1, dist_bin, theta_bin, phi_bin] += force_t * force_t
 
 
     ## Read configuration file and populate global variables
@@ -149,7 +163,7 @@ class gr2D():
                         print "Option:", option, " is not recognized"
 
             # set some extra global variables
-            global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_theta_bins, num_phi_bins
+            global kT, hist_dist_min2, hist_dist_max2, num_dist_bins, num_theta_bins, num_phi_bins, pi23, pi3
 
             # Boltzmann Constant in kcal/mol.K
             k_B = 0.0019872041
@@ -166,6 +180,10 @@ class gr2D():
             num_theta_bins = int((hist_theta_max - hist_theta_min)/bin_theta_size)
             # Phi Histogram bins
             num_phi_bins = int((hist_phi_max - hist_phi_min)/bin_phi_size)
+
+            # global constants
+            pi23 = 2*pi/3. # FIXME: this should be incorporated into the config file somehow. Like a radian of symmetry and half of that value.
+            pi3 = pi/3.
 
             f.close()
 
@@ -382,8 +400,8 @@ class gr2D():
         Bz = np.zeros((nAtomTypes, 4, num_dist_bins, num_theta_bins, num_phi_bins), dtype=float)
         # NOTE
         # Force array has the force, its square, the std.dev. of the force, and its square for each atomtype.
-        # Fr[atomtypes, force/force**2/std.dev./std.dev.**2, distbin, thetabin, phibin]
-        Fr = np.zeros((nAtomTypes, 4, num_dist_bins, num_theta_bins, num_phi_bins), dtype=float)
+        # Fr[atomtypes, <f.r>/<f.s>/<f.t>, force/force**2/std.dev./std.dev.**2, distbin, thetabin, phibin]
+        Fr = np.zeros((nAtomTypes, 3, 4, num_dist_bins, num_theta_bins, num_phi_bins), dtype=float)
         # NOTE
         # direct interaction potential
         U_dir = np.zeros((nAtomTypes, num_dist_bins, num_theta_bins, num_phi_bins), dtype=float)
@@ -403,7 +421,6 @@ class gr2D():
             print "Now analyzing trajectory file: ", traj_file[igo]
             for ts in u.trajectory:## Loop over all time steps in the trajectory.
                 if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
-                #if ts.frame >= 0:## ts.frame is the index of the timestep. Increase this to exclude "equilibration" time.
 
                     ## Progress Bar
                     sys.stdout.write("Progress: {0:.2f}% Complete\r".format((float(ts.frame) / float(len(u.trajectory))) * 100))
@@ -416,7 +433,8 @@ class gr2D():
                     lj2_dist2,lj2_dr = self.computePbcDist2(solute_sel.atoms[0].position, solute_sel.atoms[1].position, box, hbox)# Calculate the vector (lj2_dr) between the two LJ particles.
                     for a in solute_sel.atoms:
                         for b in solvent_sel.residues:
-                            rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
+                            #rSolv = (b.atoms[1].position + d * ((b.atoms[1].position - b.atoms[0].position)/1.1)) # solvent vector to excluded volume center.
+                            rSolv = b.atoms[1].position
                             ## Bin the solvent for g(r) only if the solvent is on the far side of the respective solute atom
                             solvRes_dist2,solvRes_dr = self.computePbcDist2(a.position, rSolv, box, hbox) # distance between solute and excluded volume center of CL3
                             if a.index == 0: # if first LJ particle is selected...
@@ -439,8 +457,12 @@ class gr2D():
                 for j in range(num_theta_bins):
                     for i in range(num_dist_bins):
                         if Gr[a, 1, i, j, k] > 0.5:
-                            Fr[a, 0, i, j, k] /= Gr[a, 1, i, j, k]
-                            Fr[a, 1, i, j, k] /= Gr[a, 1, i, j, k]
+                            Fr[a, 0, 0, i, j, k] /= Gr[a, 1, i, j, k]
+                            Fr[a, 1, 0, i, j, k] /= Gr[a, 1, i, j, k]
+                            Fr[a, 2, 0, i, j, k] /= Gr[a, 1, i, j, k]
+                            Fr[a, 0, 1, i, j, k] /= Gr[a, 1, i, j, k]
+                            Fr[a, 1, 1, i, j, k] /= Gr[a, 1, i, j, k]
+                            Fr[a, 2, 1, i, j, k] /= Gr[a, 1, i, j, k]
                             Bz[a, 0, i, j, k] /= Gr[a, 1, i, j, k]
                             Bz[a, 1, i, j, k] /= Gr[a, 1, i, j, k]
 
@@ -451,10 +473,10 @@ class gr2D():
             for k in range(num_phi_bins):
                 for j in range(num_theta_bins):
                     for i in range(num_dist_bins):
-                        Fr[a, 3, i, j, k] = Fr[a, 1, i, j, k] - Fr[a, 0, i, j, k]*Fr[a, 0, i, j, k]
+                        Fr[a, 0, 3, i, j, k] = Fr[a, 0, 1, i, j, k] - Fr[a, 0, 0, i, j, k]*Fr[a, 0, 0, i, j, k]
                         Bz[a, 3, i, j, k] = Bz[a, 1, i, j, k] - Bz[a, 0, i, j, k]*Bz[a, 0, i, j, k]
-                        Fr[a, 2, i, j, k] = np.sqrt( Fr[a, 3, i, j, k] )
-                        Bz[a, 2, i, j, k] = np.sqrt( Bz[a, 3, i, j, k] )
+                        Fr[a, 0, 2, i, j, k] = sqrt( Fr[a, 0, 3, i, j, k] )
+                        Bz[a, 2, i, j, k] = sqrt( Bz[a, 3, i, j, k] )
 
     def volumeCorrect(self, Gr):
         ## Volume Correct
@@ -468,17 +490,18 @@ class gr2D():
         norm_points = 10
         for a in range(nAtomTypes):
             # normalize by the last 'norm_points' distance points
-            g_norm = np.zeros((num_theta_bins,num_phi_bins), dtype=float)
+            g_norm = 0.
             for k in range(num_phi_bins):
                 for j in range(num_theta_bins):
                     for n in range(norm_points):
-                        g_norm[j, k] += Gr[a, 0, -(n+1), j, k]
-                    g_norm[j, k] /= float(norm_points)
+                        g_norm += Gr[a, 0, -(n+1), j, k]
+
+            g_norm /= float(norm_points*num_theta_bins*num_phi_bins)
 
             for k in range(num_phi_bins):
                 for j in range(num_theta_bins):
                     for i in range(num_dist_bins):
-                        Gr[a, 0, i, j, k] /= g_norm[j, k]
+                        Gr[a, 0, i, j, k] /= g_norm
 
 
     def integrateDirectSoluteSolventFrc(self, Fr, U_dir):
@@ -488,9 +511,9 @@ class gr2D():
                 for j in range(num_theta_bins):
                     for i in range(1,num_dist_bins+1):
                         if i == 1:
-                            U_dir[a, -i, j, k] = Fr[a, 0, -i, j, k] * bin_dist_size
+                            U_dir[a, -i, j, k] = Fr[a, 0, 0, -i, j, k] * bin_dist_size
                         else:
-                            U_dir[a, -i, j, k] = U_dir[a, -(i-1), j, k] + Fr[a, 0, -i, j, k] * bin_dist_size
+                            U_dir[a, -i, j, k] = U_dir[a, -(i-1), j, k] + Fr[a, 0, 0, -i, j, k] * bin_dist_size
 
 
     def writeOutputGr2D(self, out_file, Gr, Fr, Bz, U_dir):
@@ -503,19 +526,21 @@ class gr2D():
         out.write("## 4: g(r) +\n")
         out.write("## 5: g(r) -\n")
         out.write("## 6: <force . r> +\n")
-        out.write("## 7: <force . r> Std Dev +\n")
-        out.write("## 8: <force . r> -\n")
-        out.write("## 9: <force . r> Std Dev -\n")
-        out.write("## 10: <boltzmann> +\n")
-        out.write("## 11: <boltzmann> Std Dev +\n")
-        out.write("## 12: <boltzmann> -\n")
-        out.write("## 13: <boltzmann> Std Dev -\n")
-        out.write("## 14: Integrated force +\n")
-        out.write("## 15: Integrated force -\n")
+        out.write("## 7: <force . s> +\n")
+        out.write("## 8: <force . t> +\n")
+        out.write("## 9: <force . r> Std Dev +\n")
+        out.write("## 10: <force . r> -\n")
+        out.write("## 11: <force . r> Std Dev -\n")
+        out.write("## 12: <boltzmann> +\n")
+        out.write("## 13: <boltzmann> Std Dev +\n")
+        out.write("## 14: <boltzmann> -\n")
+        out.write("## 15: <boltzmann> Std Dev -\n")
+        out.write("## 16: Integrated force +\n")
+        out.write("## 17: Integrated force -\n")
         for i in range(num_dist_bins):
             for j in range(num_theta_bins):
                 for k in range(num_phi_bins):
-                    out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*bin_dist_size+hist_dist_min, (j+0.5)*bin_theta_size+hist_theta_min, (k+0.5)*bin_phi_size+hist_phi_min, Gr[0,0,i,j,k], Gr[1,0,i,j,k], Fr[0,0,i,j,k], Fr[0,2,i,j,k], Fr[1,0,i,j,k], Fr[1,2,i,j,k], Bz[0,0,i,j,k], Bz[0,2,i,j,k], Bz[1,0,i,j,k], Bz[1,2,i,j,k], U_dir[0,i,j,k], U_dir[1,i,j,k]))
+                    out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*bin_dist_size+hist_dist_min, (j+0.5)*bin_theta_size+hist_theta_min, (k+0.5)*bin_phi_size+hist_phi_min, Gr[0,0,i,j,k], Gr[1,0,i,j,k], Fr[0,0,0,i,j,k], Fr[0,1,0,i,j,k], Fr[0,2,0,i,j,k], Fr[0,0,2,i,j,k], Fr[1,0,0,i,j,k], Fr[1,0,2,i,j,k], Bz[0,0,i,j,k], Bz[0,2,i,j,k], Bz[1,0,i,j,k], Bz[1,2,i,j,k], U_dir[0,i,j,k], U_dir[1,i,j,k], Gr[0,1,i,j,k], Gr[1,1,i,j,k]))
 
         ## Close Output File
         out.close
@@ -548,11 +573,11 @@ class gr2D():
                         # sum of weighting factors for each distance
                         GrC[a, i] += Gr[a, 0, i, j, k]
                         # sum of weighted forces
-                        FrC[a, 0, i] += Fr[a, 0, i, j, k] * Gr[a, 0, i, j, k]
+                        FrC[a, 0, i] += Fr[a, 0, 0, i, j, k] * Gr[a, 0, i, j, k]
                         # sum of weighted (forces)**2. (The first term in sigma**2)
-                        FrC[a, 2, i] += Fr[a, 1, i, j, k] * Gr[a, 0, i, j, k]
+                        FrC[a, 2, i] += Fr[a, 0, 1, i, j, k] * Gr[a, 0, i, j, k]
                         # (sum of weighted forces)**2. (The second term in sigma**2)
-                        FrC[a, 1, i] += Fr[a, 0, i, j, k] * Gr[a, 0, i, j, k]
+                        FrC[a, 1, i] += Fr[a, 0, 0, i, j, k] * Gr[a, 0, i, j, k]
 
                         # sum of weighted boltzmann factors
                         BzC[a, 0, i] += Bz[a, 0, i, j, k] * Gr[a, 0, i, j, k]
@@ -566,6 +591,9 @@ class gr2D():
                     # sum of weighted forces divided by sum of weights gives weighted average.
                     FrC[a, 0, i] /= GrC[a, i]
                     # Std Dev using variance with weighted averages.
+                    print FrC[a, 2, i], GrC[a, i], FrC[a, 1, i], GrC[a, i]
+                    print sqrt( ( FrC[a, 2, i] / GrC[a, i] ) - ( FrC[a, 1, i] / GrC[a, i] )**2 )
+                    print "\n"
                     FrC[a, 1, i] = sqrt( ( FrC[a, 2, i] / GrC[a, i] ) - ( FrC[a, 1, i] / GrC[a, i] )**2 )
 
                     # sum of weighted forces divided by sum of weights gives weighted average.
@@ -645,18 +673,18 @@ class gr2D():
         self.writeOutputGr2D(out_file, Gr, Fr, Bz, U_dir)
 
         ##########
-        print 'Starting Collapsed'
-        # initialize collapsed arrays
-        GrC,FrC,BzC = self.initializeArraysCollapsed()
-
-        # collapse the 2D arrays into the 1D collapsed arrays
-        print 'Collapsing arrays'
-        self.collapseArrays(GrC, FrC, BzC, Gr, Fr, Bz)
-
-        # write collapsed output file
-        print 'Writing collapsed output file'
-        self.writeOutputCollapsed(collapsed_file, GrC, FrC, BzC)
-
+#        print 'Starting Collapsed'
+#        # initialize collapsed arrays
+#        GrC,FrC,BzC = self.initializeArraysCollapsed()
+#
+#        # collapse the 2D arrays into the 1D collapsed arrays
+#        print 'Collapsing arrays'
+#        self.collapseArrays(GrC, FrC, BzC, Gr, Fr, Bz)
+#
+#        # write collapsed output file
+#        print 'Writing collapsed output file'
+#        self.writeOutputCollapsed(collapsed_file, GrC, FrC, BzC)
+#
         print 'All Done!'
 
 
