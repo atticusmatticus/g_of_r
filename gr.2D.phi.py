@@ -528,19 +528,21 @@ class gr2D():
         out.write("## 6: <force . r> +\n")
         out.write("## 7: <force . s> +\n")
         out.write("## 8: <force . t> +\n")
-        out.write("## 9: <force . r> Std Dev +\n")
-        out.write("## 10: <force . r> -\n")
-        out.write("## 11: <force . r> Std Dev -\n")
-        out.write("## 12: <boltzmann> +\n")
-        out.write("## 13: <boltzmann> Std Dev +\n")
-        out.write("## 14: <boltzmann> -\n")
-        out.write("## 15: <boltzmann> Std Dev -\n")
-        out.write("## 16: Integrated force +\n")
-        out.write("## 17: Integrated force -\n")
+        out.write("## 9: g(r) Counts +\n")
+        out.write("## 10: g(r) Counts -\n")
+#        out.write("## 9: <force . r> Std Dev +\n")
+#        out.write("## 10: <force . r> -\n")
+#        out.write("## 11: <force . r> Std Dev -\n")
+#        out.write("## 12: <boltzmann> +\n")
+#        out.write("## 13: <boltzmann> Std Dev +\n")
+#        out.write("## 14: <boltzmann> -\n")
+#        out.write("## 15: <boltzmann> Std Dev -\n")
+#        out.write("## 16: Integrated force +\n")
+#        out.write("## 17: Integrated force -\n")
         for i in range(num_dist_bins):
             for j in range(num_theta_bins):
                 for k in range(num_phi_bins):
-                    out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*bin_dist_size+hist_dist_min, (j+0.5)*bin_theta_size+hist_theta_min, (k+0.5)*bin_phi_size+hist_phi_min, Gr[0,0,i,j,k], Gr[1,0,i,j,k], Fr[0,0,0,i,j,k], Fr[0,1,0,i,j,k], Fr[0,2,0,i,j,k], Fr[0,0,2,i,j,k], Fr[1,0,0,i,j,k], Fr[1,0,2,i,j,k], Bz[0,0,i,j,k], Bz[0,2,i,j,k], Bz[1,0,i,j,k], Bz[1,2,i,j,k], U_dir[0,i,j,k], U_dir[1,i,j,k], Gr[0,1,i,j,k], Gr[1,1,i,j,k]))
+                    out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*bin_dist_size+hist_dist_min, (j+0.5)*bin_theta_size+hist_theta_min, (k+0.5)*bin_phi_size+hist_phi_min, Gr[0,0,i,j,k], Gr[1,0,i,j,k], Fr[0,0,0,i,j,k], Fr[0,1,0,i,j,k], Fr[0,2,0,i,j,k], Gr[0,1,i,j,k], Gr[1,1,i,j,k]))#, Fr[0,0,2,i,j,k], Fr[1,0,0,i,j,k], Fr[1,0,2,i,j,k], Bz[0,0,i,j,k], Bz[0,2,i,j,k], Bz[1,0,i,j,k], Bz[1,2,i,j,k], U_dir[0,i,j,k], U_dir[1,i,j,k]))
 
         ## Close Output File
         out.close
