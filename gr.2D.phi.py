@@ -493,8 +493,8 @@ class gr2D():
             g_norm = 0.
             for k in range(num_phi_bins):
                 for j in range(num_theta_bins):
-                    for n in range(norm_points):
-                        g_norm += Gr[a, 0, -(n+1), j, k]
+                    for i in range(norm_points):
+                        g_norm += Gr[a, 0, -(i+1), j, k]
 
             g_norm /= float(norm_points*num_theta_bins*num_phi_bins)
 
@@ -542,7 +542,7 @@ class gr2D():
         for i in range(num_dist_bins):
             for j in range(num_theta_bins):
                 for k in range(num_phi_bins):
-                    out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*bin_dist_size+hist_dist_min, (j+0.5)*bin_theta_size+hist_theta_min, (k+0.5)*bin_phi_size+hist_phi_min, Gr[0,0,i,j,k], Gr[1,0,i,j,k], Fr[0,0,0,i,j,k], Fr[0,1,0,i,j,k], Fr[0,2,0,i,j,k], Gr[0,1,i,j,k], Gr[1,1,i,j,k]))#, Fr[0,0,2,i,j,k], Fr[1,0,0,i,j,k], Fr[1,0,2,i,j,k], Bz[0,0,i,j,k], Bz[0,2,i,j,k], Bz[1,0,i,j,k], Bz[1,2,i,j,k], U_dir[0,i,j,k], U_dir[1,i,j,k]))
+                    out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*bin_dist_size+hist_dist_min, (j+0.5)*bin_theta_size+hist_theta_min, (k+0.5)*bin_phi_size+hist_phi_min, Gr[0,0,i,j,k], Gr[1,0,i,j,k], Fr[0,0,0,i,j,k], Fr[0,1,0,i,j,k], Fr[0,2,0,i,j,k], Gr[0,1,i,j,k], Gr[1,1,i,j,k]))#, Fr[0,0,2,i,j,k], Fr[1,0,0,i,j,k], Fr[1,0,2,i,j,k], Bz[0,0,i,j,k], Bz[0,2,i,j,k], Bz[1,0,i,j,k], Bz[1,2,i,j,k], U_dir[0,i,j,k], U_dir[1,i,j,k]))
 
         ## Close Output File
         out.close
