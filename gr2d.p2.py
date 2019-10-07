@@ -44,7 +44,7 @@ def t_dot_rcl(dot,sign):
 
 ## Read configuration file and populate global variables
 def parse_config_file(cfgFile):
-        global topFile, trajFile, outFile, histDistMin, histDistMax, binDistSize, histThetaMin, histThetaMax, binThetaSize, T, soluteResname, solventResname, d, histPhiMin, histPhiMax, binPhiSize
+        global topFile, trajFile, outFile, histDistMin, histDistMax, binDistSize, histThetaMin, histThetaMax, binThetaSize, T, soluteResname, solventResname, d, histPhiMin, histPhiMax, binPhiSize, nAtomTypes
         trajFile = []
         f = open(cfgFile)
         for line in f:
@@ -89,6 +89,8 @@ def parse_config_file(cfgFile):
                     solventResname = value
                 elif option.lower()=='offset':
                     d = float(value)
+                elif option.lower()=='number_solute_atoms':
+                    nAtomTypes = int(value)
                 else :
                     print("Option:", option, " is not recognized")
 
@@ -354,7 +356,8 @@ def iterate(Gc, FrLJ, FrC, Pr):
             hbox = u.dimensions[:3]/2
 
             # Compute all pairwise distances
-            ljDr = wrapPbc(soluSel.atoms[0].position, soluSel.atoms[1].position, box, hbox)# Calculate the vector (ljDr) between the two LJ particles.
+            if nAtomTypes == 2:
+                ljDr = wrapPbc(soluSel.atoms[0].position, soluSel.atoms[1].position, box, hbox)# Calculate the vector (ljDr) between the two LJ particles.
             for a in soluSel.atoms:
                 # Calculate r,cosTh,phi bin
                 pCH = wrapPbc(solvSel.atoms[np.arange(0,nSolv,5)].positions, solvSel.atoms[np.arange(1,nSolv,5)].positions, box, hbox)
@@ -363,13 +366,14 @@ def iterate(Gc, FrLJ, FrC, Pr):
                 rSolv = wrapPbc(a.position, rSolv, box, hbox)
                 pCCl = wrapPbc(solvSel.atoms[np.arange(2,nSolv,5)].positions, solvSel.atoms[np.arange(1,nSolv,5)].positions, box, hbox)
 
-                if a.index == 0:
-                    ip = np.where( np.dot(rSolv,ljDr)>0 ) # far side from solute
-                elif a.index == 1:
-                    ip = np.where( np.dot(rSolv,ljDr)<0 ) # far side from solute
-                rSolv = np.delete(rSolv,ip,axis=0)
-                pCH = np.delete(pCH,ip,axis=0)
-                pCCl = np.delete(pCCl,ip,axis=0)
+                if nAtomTypes == 2:
+                    if a.index == 0:
+                        ip = np.where( np.dot(rSolv,ljDr)>0 ) # far side from solute
+                    elif a.index == 1:
+                        ip = np.where( np.dot(rSolv,ljDr)<0 ) # far side from solute
+                    rSolv = np.delete(rSolv,ip,axis=0)
+                    pCH = np.delete(pCH,ip,axis=0)
+                    pCCl = np.delete(pCCl,ip,axis=0)
 
                 ir = np.where( np.einsum('ij,ij->i',rSolv,rSolv) >= histDistMax2 )
                 rSolv = np.delete(rSolv,ir,axis=0)
@@ -397,10 +401,11 @@ def iterate(Gc, FrLJ, FrC, Pr):
                 solvAtomPos = solvSel.atoms[np.arange(0,nSolv,1)].positions
                 solvAtomChg = solvSel.atoms[np.arange(0,nSolv,1)].charges
                 # Delete all atoms associated with residues that have been deleted previously above before calculating force to save time
-                ipa = np.append(np.append(np.append(np.append( ip[0]*5, ip[0]*5+1), ip[0]*5+2), ip[0]*5+3), ip[0]*5+4)  # list of atoms to remove based on "residue" dot product removal list
-                solvAtomInd = np.delete(solvAtomInd,ipa,axis=0) # remove atoms that belong to previously deleted residues: dot product
-                solvAtomPos = np.delete(solvAtomPos,ipa,axis=0) # remove atoms that belong to previously deleted residues: dot product
-                solvAtomChg = np.delete(solvAtomChg,ipa,axis=0) # remove atoms that belong to previously deleted residues: dot product
+                if nAtomTypes == 2:
+                    ipa = np.append(np.append(np.append(np.append( ip[0]*5, ip[0]*5+1), ip[0]*5+2), ip[0]*5+3), ip[0]*5+4)  # list of atoms to remove based on "residue" dot product removal list
+                    solvAtomInd = np.delete(solvAtomInd,ipa,axis=0) # remove atoms that belong to previously deleted residues: dot product
+                    solvAtomPos = np.delete(solvAtomPos,ipa,axis=0) # remove atoms that belong to previously deleted residues: dot product
+                    solvAtomChg = np.delete(solvAtomChg,ipa,axis=0) # remove atoms that belong to previously deleted residues: dot product
                 ira = np.append(np.append(np.append(np.append( ir[0]*5, ir[0]*5+1), ir[0]*5+2), ir[0]*5+3), ir[0]*5+4)  # list of atoms to remove based on "residue" distance removal list
                 solvAtomInd = np.delete(solvAtomInd,ira,axis=0) # remove atoms that belong to previously deleted residues: distance
                 solvAtomChg = np.delete(solvAtomChg,ira,axis=0) # remove atoms that belong to previously deleted residues: distance
@@ -428,7 +433,7 @@ def iterate(Gc, FrLJ, FrC, Pr):
                 fCr = np.einsum('ij,ij->i',fSolvC,rSolv)/rSolvDist # force along r
                 fCs = np.einsum('ij,ij->i',fSolvC,sSolv)
                 fCt = np.einsum('ij,ij->i',fSolvC,tSolv)
-                pSolv = np.einsum('ij,ij->',pCH,rSolv)/rSolvDist # polarization along r
+                pSolv = np.einsum('ij,ij->i',pCH,rSolv)/rSolvDist # polarization along r
 
                 np.add.at(Gc[a.index], tuple(np.stack((distBin,thetaBin,phiBin))), 1)
                 np.add.at(FrLJ[a.index][0], tuple(np.stack((distBin,thetaBin,phiBin))), fLJr)
@@ -481,7 +486,32 @@ def normalize_Gr(Gr):
                     Gr[a, i, j, k] /= g_norm
 
 
-def write_out(outFile, Gc, Gr, FrLJ, FrC, Pr):
+def write_out_1(outFile, Gc, Gr, FrLJ, FrC, Pr):
+    ## Open Output File
+    out = open(outFile,'w')
+
+    out.write("##  1: Distance Bin\n")
+    out.write("##  2: Cos(theta) Bin\n")
+    out.write("##  3: Phi/3 Bin\n")
+    out.write("##  4: g(r)\n")
+    out.write("##  5: <fLJ . r>\n")
+    out.write("##  6: <fLJ . s>\n")
+    out.write("##  7: <fLJ . t>\n")
+    out.write("##  8: <fC . r>\n")
+    out.write("##  9: <fC . s>\n")
+    out.write("## 10: <fC . t>\n")
+    out.write("## 11: g(r) Counts\n")
+    out.write("## 12: p(r) H->C\n")
+    for i in range(nDistBins):
+        for j in range(nThetaBins):
+            for k in range(nPhiBins):
+                out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*binDistSize+histDistMin, (j+0.5)*binThetaSize+histThetaMin, (k+0.5)*binPhiSize+histPhiMin, Gr[0,i,j,k], FrLJ[0,0,i,j,k], FrLJ[0,1,i,j,k], FrLJ[0,2,i,j,k], FrC[0,0,i,j,k], FrC[0,1,i,j,k], FrC[0,2,i,j,k], Gc[0,i,j,k], -Pr[0,i,j,k]))
+
+    ## Close Output File
+    out.close
+
+
+def write_out_2(outFile, Gc, Gr, FrLJ, FrC, Pr):
     ## Open Output File
     out = open(outFile,'w')
 
@@ -529,8 +559,6 @@ def mainLJ():
 
     ##########
     # initialize 2D arrays
-    global nAtomTypes
-    nAtomTypes = 2 # Number of solute atom types (+1z,-1z)
 
     # initialize with total dist, theta, and phi bins
     Gc,Gr,FrLJ,FrC,Pr = initialize_arrays()
@@ -551,7 +579,10 @@ def mainLJ():
 
     # write 2D output file: Gc, frc, boltz, integrated_force
     print('Write 2D output file')
-    write_out(outFile, Gc, Gr, FrLJ, FrC, Pr)
+    if nAtomTypes == 1:
+        write_out_1(outFile, Gc, Gr, FrLJ, FrC, Pr)
+    elif nAtomTypes == 2:
+        write_out_2(outFile, Gc, Gr, FrLJ, FrC, Pr)
 
     print('All Done!')
 
