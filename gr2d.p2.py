@@ -27,7 +27,7 @@ def wrap_phi(phi):
 
 
 def compute_pbc_dr(r1,r2,box,hbox):
-    dr = r1 - r2
+    dr = r1 - r2 # dr points from r2 to r1
     if dr < -hbox:
         dr += box
     elif dr > hbox:
@@ -44,80 +44,80 @@ def t_dot_rcl(dot,sign):
 
 ## Read configuration file and populate global variables
 def parse_config_file(cfgFile):
-        global topFile, trajFile, outFile, histDistMin, histDistMax, binDistSize, histThetaMin, histThetaMax, binThetaSize, T, soluteResname, solventResname, d, histPhiMin, histPhiMax, binPhiSize, nAtomTypes
-        trajFile = []
-        f = open(cfgFile)
-        for line in f:
-            # first remove comments
-            if '#' in line:
-                line, comment = line.split('#',1)
-            if '=' in line:
-                option, value = line.split('=',1)
-                option = option.strip()
-                value = value.strip()
-                print("Option:", option, " Value:", value)
-                # check value
-                if option.lower()=='topfile':
-                    topFile = value
-                elif option.lower()=='trajfile':
-                    trajFile.append(value)
-                elif option.lower()=='outfile':
-                    outFile = value
-                elif option.lower()=='hist_dist_min':
-                    histDistMin = float(value)
-                elif option.lower()=='hist_dist_max':
-                    histDistMax = float(value)
-                elif option.lower()=='bin_dist_size':
-                    binDistSize = float(value)
-                elif option.lower()=='hist_theta_min':
-                    histThetaMin = float(value)
-                elif option.lower()=='hist_theta_max':
-                    histThetaMax = float(value)
-                elif option.lower()=='bin_theta_size':
-                    binThetaSize = float(value)
-                elif option.lower()=='hist_phi_min':
-                    histPhiMin = float(value)
-                elif option.lower()=='hist_phi_max':
-                    histPhiMax = float(value)
-                elif option.lower()=='bin_phi_size':
-                    binPhiSize = float(value)
-                elif option.lower()=='temperature':
-                    T = float(value)
-                elif option.lower()=='solute_resname':
-                    soluteResname = value
-                elif option.lower()=='solvent_resname':
-                    solventResname = value
-                elif option.lower()=='offset':
-                    d = float(value)
-                elif option.lower()=='number_solute_atoms':
-                    nAtomTypes = int(value)
-                else :
-                    print("Option:", option, " is not recognized")
+    global topFile, trajFile, outFile, histDistMin, histDistMax, binDistSize, histThetaMin, histThetaMax, binThetaSize, T, soluteResname, solventResname, d, histPhiMin, histPhiMax, binPhiSize, nAtomTypes
+    trajFile = []
+    f = open(cfgFile)
+    for line in f:
+        # first remove comments
+        if '#' in line:
+            line, comment = line.split('#',1)
+        if '=' in line:
+            option, value = line.split('=',1)
+            option = option.strip()
+            value = value.strip()
+            print("Option:", option, " Value:", value)
+            # check value
+            if option.lower()=='topfile':
+                topFile = value
+            elif option.lower()=='trajfile':
+                trajFile.append(value)
+            elif option.lower()=='outfile':
+                outFile = value
+            elif option.lower()=='hist_dist_min':
+                histDistMin = float(value)
+            elif option.lower()=='hist_dist_max':
+                histDistMax = float(value)
+            elif option.lower()=='bin_dist_size':
+                binDistSize = float(value)
+            elif option.lower()=='hist_theta_min':
+                histThetaMin = float(value)
+            elif option.lower()=='hist_theta_max':
+                histThetaMax = float(value)
+            elif option.lower()=='bin_theta_size':
+                binThetaSize = float(value)
+            elif option.lower()=='hist_phi_min':
+                histPhiMin = float(value)
+            elif option.lower()=='hist_phi_max':
+                histPhiMax = float(value)
+            elif option.lower()=='bin_phi_size':
+                binPhiSize = float(value)
+            elif option.lower()=='temperature':
+                T = float(value)
+            elif option.lower()=='solute_resname':
+                soluteResname = value
+            elif option.lower()=='solvent_resname':
+                solventResname = value
+            elif option.lower()=='offset':
+                d = float(value)
+            elif option.lower()=='number_solute_atoms':
+                nAtomTypes = int(value)
+            else :
+                print("Option:", option, " is not recognized")
 
-        # set some extra global variables
-        global kT, histDistMin2, histDistMax2, nDistBins, nThetaBins, nPhiBins, pi23, pi3
+    # set some extra global variables
+    global kT, histDistMin2, histDistMax2, nDistBins, nThetaBins, nPhiBins, pi23, pi3
 
-        # Boltzmann Constant in kcal/mol.K
-        k_B = 0.0019872041
-        kT = k_B * T
+    # Boltzmann Constant in kcal/mol.K
+    k_B = 0.0019872041
+    kT = k_B * T
 
-        # Distances [in Angstroms]
-        histDistMin2= histDistMin*histDistMin
-        histDistMax2= histDistMax*histDistMax
+    # Distances [in Angstroms]
+    histDistMin2= histDistMin*histDistMin
+    histDistMax2= histDistMax*histDistMax
 
-        # Histogram bins
-        nDistBins = int((histDistMax - histDistMin)/binDistSize)
+    # Histogram bins
+    nDistBins = int((histDistMax - histDistMin)/binDistSize)
 
-        # Cosine Theta Histogram bins
-        nThetaBins = int((histThetaMax - histThetaMin)/binThetaSize)
-        # Phi Histogram bins
-        nPhiBins = int((histPhiMax - histPhiMin)/binPhiSize)
+    # Cosine Theta Histogram bins
+    nThetaBins = int((histThetaMax - histThetaMin)/binThetaSize)
+    # Phi Histogram bins
+    nPhiBins = int((histPhiMax - histPhiMin)/binPhiSize)
 
-        # global constants
-        pi23 = 2*pi/3. # FIXME: this should be incorporated into the config file somehow. Like a radian of symmetry and half of that value.
-        pi3 = pi/3.
+    # global constants
+    pi23 = 2*pi/3. # FIXME: this should be incorporated into the config file somehow. Like a radian of symmetry and half of that value.
+    pi3 = pi/3.
 
-        f.close()
+    f.close()
 
 
 ## Read prmtop file and populate global variables
@@ -329,13 +329,12 @@ def initialize_arrays():
     FrLJ = np.zeros((nAtomTypes, 3, nDistBins, nThetaBins, nPhiBins), dtype=float)
     # FrC[atomtypes, <f.r>/<f.s>/<f.t>, distbin, thetabin, phibin]
     FrC = np.zeros((nAtomTypes, 3, nDistBins, nThetaBins, nPhiBins), dtype=float)
-    Pr = np.zeros((nAtomTypes, nDistBins, nThetaBins, nPhiBins), dtype=float)
-    return Gc, Gr, FrLJ, FrC, Pr;
+    return Gc, Gr, FrLJ, FrC;
 
 
 
 # loop through trajectory
-def iterate(Gc, FrLJ, FrC, Pr):
+def iterate(Gc, FrLJ, FrC):
     u = MDAnalysis.Universe(topFile, trajFile[0]) # initiate MDAnalysis Universe.
     soluSel = u.select_atoms('resname ' + soluteResname)
     solvSel = u.select_atoms('resname ' + solventResname)
@@ -381,7 +380,7 @@ def iterate(Gc, FrLJ, FrC, Pr):
                 pCCl = np.delete(pCCl,ir,axis=0)
 
                 rSolvDist = np.sqrt(np.einsum('ij,ij->i',rSolv,rSolv))
-                cosTh = np.divide( np.einsum('ij,ij->i',pCH,rSolv), rSolvDist)
+                cosTh = np.divide( np.einsum('ij,ij->i',pCH,rSolv), rSolvDist) # +1 when pCH points toward solute
 
                 nLJCH = np.cross(pCH, rSolv)
                 nHCCl1 = np.cross(pCH, pCCl)
@@ -433,7 +432,6 @@ def iterate(Gc, FrLJ, FrC, Pr):
                 fCr = np.einsum('ij,ij->i',fSolvC,rSolv)/rSolvDist # force along r
                 fCs = np.einsum('ij,ij->i',fSolvC,sSolv)
                 fCt = np.einsum('ij,ij->i',fSolvC,tSolv)
-                pSolv = np.einsum('ij,ij->i',pCH,rSolv)/rSolvDist # polarization along r
 
                 np.add.at(Gc[a.index], tuple(np.stack((distBin,thetaBin,phiBin))), 1)
                 np.add.at(FrLJ[a.index][0], tuple(np.stack((distBin,thetaBin,phiBin))), fLJr)
@@ -442,10 +440,9 @@ def iterate(Gc, FrLJ, FrC, Pr):
                 np.add.at(FrC[a.index][0], tuple(np.stack((distBin,thetaBin,phiBin))), fCr)
                 np.add.at(FrC[a.index][1], tuple(np.stack((distBin,thetaBin,phiBin))), fCs)
                 np.add.at(FrC[a.index][2], tuple(np.stack((distBin,thetaBin,phiBin))), fCt)
-                np.add.at(Pr[a.index],tuple(np.stack((distBin,thetaBin,phiBin))), pSolv)
 
 
-def average_Fr(Gc, FrLJ, FrC, Pr):
+def average_Fr(Gc, FrLJ, FrC):
     # Average LJ radial force for each distance and cos(theta) bin
     for a in range(nAtomTypes):
         np.divide(FrLJ[a][0], Gc[a], out=FrLJ[a][0], where=Gc[a][:,:,:]!=0)
@@ -454,7 +451,6 @@ def average_Fr(Gc, FrLJ, FrC, Pr):
         np.divide(FrC[a][0], Gc[a], out=FrC[a][0], where=Gc[a][:,:,:]!=0)
         np.divide(FrC[a][1], Gc[a], out=FrC[a][1], where=Gc[a][:,:,:]!=0)
         np.divide(FrC[a][2], Gc[a], out=FrC[a][2], where=Gc[a][:,:,:]!=0)
-        np.divide(Pr[a], Gc[a], out=Pr[a], where=Gc[a][:,:,:]!=0)
 
 
 def volume_correct(Gc, Gr):
@@ -486,7 +482,7 @@ def normalize_Gr(Gr):
                     Gr[a, i, j, k] /= g_norm
 
 
-def write_out_1(outFile, Gc, Gr, FrLJ, FrC, Pr):
+def write_out_1(outFile, Gc, Gr, FrLJ, FrC):
     ## Open Output File
     out = open(outFile,'w')
 
@@ -501,17 +497,16 @@ def write_out_1(outFile, Gc, Gr, FrLJ, FrC, Pr):
     out.write("##  9: <fC . s>\n")
     out.write("## 10: <fC . t>\n")
     out.write("## 11: g(r) Counts\n")
-    out.write("## 12: p(r) H->C\n")
     for i in range(nDistBins):
         for j in range(nThetaBins):
             for k in range(nPhiBins):
-                out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*binDistSize+histDistMin, (j+0.5)*binThetaSize+histThetaMin, (k+0.5)*binPhiSize+histPhiMin, Gr[0,i,j,k], FrLJ[0,0,i,j,k], FrLJ[0,1,i,j,k], FrLJ[0,2,i,j,k], FrC[0,0,i,j,k], FrC[0,1,i,j,k], FrC[0,2,i,j,k], Gc[0,i,j,k], -Pr[0,i,j,k]))
+                out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*binDistSize+histDistMin, (j+0.5)*binThetaSize+histThetaMin, (k+0.5)*binPhiSize+histPhiMin, Gr[0,i,j,k], FrLJ[0,0,i,j,k], FrLJ[0,1,i,j,k], FrLJ[0,2,i,j,k], FrC[0,0,i,j,k], FrC[0,1,i,j,k], FrC[0,2,i,j,k], Gc[0,i,j,k]))
 
     ## Close Output File
     out.close
 
 
-def write_out_2(outFile, Gc, Gr, FrLJ, FrC, Pr):
+def write_out_2(outFile, Gc, Gr, FrLJ, FrC):
     ## Open Output File
     out = open(outFile,'w')
 
@@ -534,12 +529,10 @@ def write_out_2(outFile, Gc, Gr, FrLJ, FrC, Pr):
     out.write("## 17: <fC . t> -\n")
     out.write("## 18: g(r) Counts +\n")
     out.write("## 19: g(r) Counts -\n")
-    out.write("## 20: p(r) + H->C\n")
-    out.write("## 21: p(r) - H->C\n")
     for i in range(nDistBins):
         for j in range(nThetaBins):
             for k in range(nPhiBins):
-                out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*binDistSize+histDistMin, (j+0.5)*binThetaSize+histThetaMin, (k+0.5)*binPhiSize+histPhiMin, Gr[0,i,j,k], Gr[1,i,j,k], FrLJ[0,0,i,j,k], FrLJ[0,1,i,j,k], FrLJ[0,2,i,j,k], FrLJ[1,0,i,j,k], FrLJ[1,1,i,j,k], FrLJ[1,2,i,j,k], FrC[0,0,i,j,k], FrC[0,1,i,j,k], FrC[0,2,i,j,k], FrC[1,0,i,j,k], FrC[1,1,i,j,k], FrC[1,2,i,j,k], Gc[0,i,j,k], Gc[1,i,j,k], -Pr[0,i,j,k], -Pr[1,i,j,k]))
+                out.write("%10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %((i+0.5)*binDistSize+histDistMin, (j+0.5)*binThetaSize+histThetaMin, (k+0.5)*binPhiSize+histPhiMin, Gr[0,i,j,k], Gr[1,i,j,k], FrLJ[0,0,i,j,k], FrLJ[0,1,i,j,k], FrLJ[0,2,i,j,k], FrLJ[1,0,i,j,k], FrLJ[1,1,i,j,k], FrLJ[1,2,i,j,k], FrC[0,0,i,j,k], FrC[0,1,i,j,k], FrC[0,2,i,j,k], FrC[1,0,i,j,k], FrC[1,1,i,j,k], FrC[1,2,i,j,k], Gc[0,i,j,k], Gc[1,i,j,k]))
 
     ## Close Output File
     out.close
@@ -561,15 +554,15 @@ def mainLJ():
     # initialize 2D arrays
 
     # initialize with total dist, theta, and phi bins
-    Gc,Gr,FrLJ,FrC,Pr = initialize_arrays()
+    Gc,Gr,FrLJ,FrC = initialize_arrays()
 
     # loop through trajectory and calculate g(r,cos[theta]), force(r,cos[theta]), boltzmann(r,cos[theta])
     print('Looping through trajectory time steps...')
-    iterate(Gc, FrLJ, FrC, Pr)
+    iterate(Gc, FrLJ, FrC)
 
     # average the force and boltzmann by the g(r,cos[theta])
     print('Volume correcting...')
-    average_Fr(Gc, FrLJ, FrC, Pr)
+    average_Fr(Gc, FrLJ, FrC)
 
     # volume correct g(r,cos[theta])
     volume_correct(Gc, Gr)
@@ -580,9 +573,9 @@ def mainLJ():
     # write 2D output file: Gc, frc, boltz, integrated_force
     print('Write 2D output file')
     if nAtomTypes == 1:
-        write_out_1(outFile, Gc, Gr, FrLJ, FrC, Pr)
+        write_out_1(outFile, Gc, Gr, FrLJ, FrC)
     elif nAtomTypes == 2:
-        write_out_2(outFile, Gc, Gr, FrLJ, FrC, Pr)
+        write_out_2(outFile, Gc, Gr, FrLJ, FrC)
 
     print('All Done!')
 
